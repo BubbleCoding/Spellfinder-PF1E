@@ -156,15 +156,13 @@ const msSchool         = new MultiSelect("ms-school",          "School",        
 const msLevel          = new MultiSelect("ms-level",           "Level",           "level",           () => searchSpells(1));
 const msCastingTime    = new MultiSelect("ms-casting-time",    "Casting Time",    "casting_time",    () => searchSpells(1));
 const msRange          = new MultiSelect("ms-range",           "Range",           "range",           () => searchSpells(1));
-const msArea           = new MultiSelect("ms-area",            "Area",            "area",            () => searchSpells(1));
-const msEffect         = new MultiSelect("ms-effect",          "Effect",          "effect",          () => searchSpells(1));
-const msTargets        = new MultiSelect("ms-targets",         "Targets",         "targets",         () => searchSpells(1));
+const msArea           = new MultiSelect("ms-area",            "Area / Shape",    "area",            () => searchSpells(1));
 const msDuration       = new MultiSelect("ms-duration",        "Duration",        "duration",        () => searchSpells(1));
 const msSavingThrow    = new MultiSelect("ms-saving-throw",    "Saving Throw",    "saving_throw",    () => searchSpells(1));
 const msSpellResist    = new MultiSelect("ms-spell-resistance","Spell Resistance","spell_resistance",() => searchSpells(1));
 const msSubschool      = new MultiSelect("ms-subschool",       "Subschool",       "subschool",       () => searchSpells(1));
 const msDescriptor     = new MultiSelect("ms-descriptor",      "Descriptor",      "descriptor",      () => searchSpells(1));
-allMultiSelects.push(msClass, msSchool, msLevel, msCastingTime, msRange, msArea, msEffect, msTargets, msDuration, msSavingThrow, msSpellResist, msSubschool, msDescriptor);
+allMultiSelects.push(msClass, msSchool, msLevel, msCastingTime, msRange, msArea, msDuration, msSavingThrow, msSpellResist, msSubschool, msDescriptor);
 
 // Close all panels when clicking outside
 document.addEventListener("click", () => {
@@ -183,8 +181,6 @@ async function loadFilters() {
         msCastingTime.populate(data.casting_time || []);
         msRange.populate(data.range || []);
         msArea.populate(data.area || []);
-        msEffect.populate(data.effect || []);
-        msTargets.populate(data.targets || []);
         msDuration.populate(data.duration || []);
         msSavingThrow.populate(data.saving_throw || []);
         msSpellResist.populate(data.spell_resistance || []);

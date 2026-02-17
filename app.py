@@ -8,6 +8,74 @@ from flask import Flask, g, jsonify, render_template, request
 app = Flask(__name__)
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pfinder.db")
 
+# Grouped LIKE filter options: param_value.lower() → (db_field, like_keyword)
+# Area options cover both the `area` and `effect` columns.
+_DESCRIPTOR_TAGS = [
+    "Mind-Affecting", "Emotion", "Fear", "Language-Dependent", "Evil", "Good",
+    "Lawful", "Chaotic", "Fire", "Cold", "Electricity", "Acid", "Sonic", "Force",
+    "Air", "Earth", "Water", "Light", "Darkness", "Shadow", "Curse", "Poison",
+    "Disease", "Death", "Pain", "Meditative", "Ruse", "Draconic",
+]
+
+GROUPED_FILTER_MAPS = {
+    "casting_time": {
+        "standard action":   ("casting_time", "standard"),
+        "full-round action": ("casting_time", "full"),
+        "swift action":      ("casting_time", "swift"),
+        "immediate action":  ("casting_time", "immediate"),
+        "1 round":           ("casting_time", "1 round"),
+        "1 minute":          ("casting_time", "1 min"),
+        "10 minutes":        ("casting_time", "10 min"),
+        "1 hour+":           ("casting_time", "hour"),
+    },
+    "range": {
+        "personal":  ("range", "personal"),
+        "touch":     ("range", "touch"),
+        "close":     ("range", "close"),
+        "medium":    ("range", "medium"),
+        "long":      ("range", "long"),
+        "unlimited": ("range", "unlimited"),
+        "see text":  ("range", "see text"),
+    },
+    "duration": {
+        "instantaneous":    ("duration", "instantaneous"),
+        "1 round/level":    ("duration", "round"),
+        "1 minute/level":   ("duration", "1 min"),
+        "10 minutes/level": ("duration", "10 min"),
+        "hours":            ("duration", "hour"),
+        "days":             ("duration", "day"),
+        "permanent":        ("duration", "permanent"),
+        "concentration":    ("duration", "concentration"),
+        "until discharged": ("duration", "discharged"),
+    },
+    "descriptor": {t.lower(): ("descriptor", t.lower()) for t in _DESCRIPTOR_TAGS},
+    "saving_throw": {
+        "will":      ("saving_throw", "will"),
+        "fortitude": ("saving_throw", "fortitude"),
+        "reflex":    ("saving_throw", "reflex"),
+        "none":      ("saving_throw", "none"),
+    },
+    "spell_resistance": {
+        "yes": ("spell_resistance", "yes"),
+        "no":  ("spell_resistance", "no"),
+    },
+    "area": {
+        "line":      ("area",   "line"),
+        "cone":      ("area",   "cone"),
+        "radius":    ("area",   "radius"),
+        "burst":     ("area",   "burst"),
+        "emanation": ("area",   "emanation"),
+        "spread":    ("area",   "spread"),
+        "cube":      ("area",   "cube"),
+        "cylinder":  ("area",   "cylinder"),
+        "ray":       ("effect", "ray"),
+        "wall":      ("effect", "wall"),
+        "fog":       ("effect", "fog"),
+        "sphere":    ("effect", "sphere"),
+        "hole":      ("effect", "hole"),
+    },
+}
+
 
 def get_db():
     if "db" not in g:
@@ -50,24 +118,28 @@ def api_filters():
         ).fetchall()
     ]
 
-    attr_fields = [
-        "casting_time", "range", "effect", "targets",
-        "duration", "subschool", "descriptor",
-    ]
+    # subschool is still exact-match with dynamic values
     result = {"classes": classes, "schools": schools, "sources": sources}
-    for field in attr_fields:
-        result[field] = [
-            r[0]
-            for r in db.execute(
-                f"SELECT {field}, COUNT(*) AS cnt FROM spells"
-                f" WHERE {field} IS NOT NULL AND {field} != ''"
-                f" GROUP BY {field} ORDER BY cnt DESC, {field}"
-            ).fetchall()
-        ]
-    # Normalized grouped options
-    result["saving_throw"] = ["Will", "Fortitude", "Reflex", "None"]
+    result["subschool"] = [
+        r[0]
+        for r in db.execute(
+            "SELECT subschool, COUNT(*) AS cnt FROM spells"
+            " WHERE subschool IS NOT NULL AND subschool != ''"
+            " GROUP BY subschool ORDER BY cnt DESC, subschool"
+        ).fetchall()
+    ]
+    # Hardcoded grouped filter options
+    result["casting_time"]    = ["Standard Action", "Full-Round Action", "Swift Action",
+                                  "Immediate Action", "1 Round", "1 Minute", "10 Minutes", "1 Hour+"]
+    result["range"]           = ["Personal", "Touch", "Close", "Medium", "Long", "Unlimited", "See Text"]
+    result["duration"]        = ["Instantaneous", "1 Round/Level", "1 Minute/Level",
+                                  "10 Minutes/Level", "Hours", "Days", "Permanent",
+                                  "Concentration", "Until Discharged"]
+    result["descriptor"]      = _DESCRIPTOR_TAGS
+    result["saving_throw"]    = ["Will", "Fortitude", "Reflex", "None"]
     result["spell_resistance"] = ["Yes", "No"]
-    result["area"] = ["Line", "Radius", "Cone", "Cube", "Sphere", "Cylinder"]
+    result["area"]            = ["Line", "Cone", "Radius", "Burst", "Emanation", "Spread",
+                                  "Cube", "Cylinder", "Ray", "Wall", "Fog", "Sphere", "Hole"]
     return jsonify(result)
 
 
@@ -118,25 +190,27 @@ def api_spells():
         where_clauses.append(f"LOWER(s.school) IN ({_ph})")
         params.extend(schools)
 
-    # Multi-value attribute filters (exact match)
-    _attr_filter_fields = [
-        "casting_time", "range", "effect", "targets",
-        "duration", "subschool", "descriptor",
-    ]
-    for _field in _attr_filter_fields:
-        _values = request.args.getlist(_field)
-        if _values:
-            _placeholders = ",".join("?" * len(_values))
-            where_clauses.append(f"LOWER(s.{_field}) IN ({_placeholders})")
-            params.extend([v.lower() for v in _values])
+    # Exact-match filter: subschool only
+    _subschool_values = request.args.getlist("subschool")
+    if _subschool_values:
+        _ph = ",".join("?" * len(_subschool_values))
+        where_clauses.append(f"LOWER(s.subschool) IN ({_ph})")
+        params.extend([v.lower() for v in _subschool_values])
 
-    # Grouped LIKE filters — each selected option matches anything containing that keyword
-    for _field in ["saving_throw", "spell_resistance", "area"]:
-        _values = request.args.getlist(_field)
-        if _values:
-            _like_clauses = [f"LOWER(s.{_field}) LIKE ?" for _ in _values]
+    # Grouped LIKE filters — each option maps to a (db_field, keyword) pair
+    for _param, _option_map in GROUPED_FILTER_MAPS.items():
+        _values = request.args.getlist(_param)
+        if not _values:
+            continue
+        _like_clauses = []
+        for v in _values:
+            mapping = _option_map.get(v.lower())
+            if mapping:
+                _db_field, _keyword = mapping
+                _like_clauses.append(f"LOWER(s.{_db_field}) LIKE ?")
+                params.append(f"%{_keyword}%")
+        if _like_clauses:
             where_clauses.append("(" + " OR ".join(_like_clauses) + ")")
-            params.extend([f"%{v.lower()}%" for v in _values])
 
     where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
     join_sql = " ".join(joins)
