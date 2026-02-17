@@ -251,6 +251,7 @@ main {
     flex-shrink: 0;
 }
 
+#favorites-btn,
 #clear-filters {
     padding: 0.45rem 0.8rem;
     background: transparent;
@@ -260,10 +261,21 @@ main {
     font-size: 0.85rem;
     cursor: pointer;
     transition: all 0.2s;
+    align-self: flex-end;
+}
+
+#clear-filters {
     margin-left: auto;
 }
 
+#favorites-btn:hover,
 #clear-filters:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+#favorites-btn.active {
+    background: rgba(200,164,110,0.15);
     border-color: var(--accent);
     color: var(--accent);
 }
@@ -276,6 +288,12 @@ main {
     margin-bottom: 0.8rem;
     font-size: 0.9rem;
     color: var(--text-dim);
+}
+
+.results-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
 }
 
 .sort-control {
@@ -451,6 +469,28 @@ main {
     color: var(--school-divination);
     font-size: 0.82rem;
     font-weight: 600;
+}
+
+/* Favorite star button on spell card */
+.favorite-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.05rem;
+    color: var(--text-dim);
+    padding: 0 0.1rem;
+    line-height: 1;
+    transition: color 0.15s, transform 0.1s;
+    flex-shrink: 0;
+}
+
+.favorite-btn:hover {
+    color: var(--accent);
+    transform: scale(1.25);
+}
+
+.favorite-btn.favorited {
+    color: var(--accent);
 }
 
 /* Pagination */

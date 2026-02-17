@@ -25,7 +25,6 @@ class MultiSelect {
             this.toggle();
         });
 
-        // Prevent clicks inside the panel from bubbling to document
         this.panel.addEventListener("click", (e) => e.stopPropagation());
 
         this._updateBtn();
@@ -43,6 +42,22 @@ class MultiSelect {
         });
     }
 
+    // Restore selections from an array of values (used when reading URL state)
+    setValue(values) {
+        const lc = new Set(values.map(v => v.toLowerCase()));
+        this.selected.clear();
+        this.panel.querySelectorAll("input[type=checkbox]").forEach((cb, i) => {
+            if (i === 0) {
+                cb.checked = lc.size === 0;
+            } else {
+                const isSelected = lc.has(cb.value.toLowerCase());
+                cb.checked = isSelected;
+                if (isSelected) this.selected.add(cb.value);
+            }
+        });
+        this._updateBtn();
+    }
+
     _makeOption(displayText, value) {
         const div = document.createElement("div");
         div.className = "multiselect-option";
@@ -54,7 +69,6 @@ class MultiSelect {
         span.textContent = displayText;
 
         if (value === null) {
-            // "All" checkbox
             cb.checked = true;
             cb.addEventListener("change", () => {
                 this.selected.clear();
@@ -86,8 +100,7 @@ class MultiSelect {
     }
 
     toggle() {
-        const isOpen = this.panel.classList.contains("open");
-        if (isOpen) {
+        if (this.panel.classList.contains("open")) {
             this.close();
         } else {
             this.panel.classList.add("open");
@@ -138,38 +151,51 @@ class MultiSelect {
 }
 
 // ── App state ─────────────────────────────────────────────────────────────────
-const searchInput = document.getElementById("search-input");
-const sortSelect = document.getElementById("sort-select");
-const clearBtn = document.getElementById("clear-filters");
-const resultsCount = document.getElementById("results-count");
-const resultsList = document.getElementById("results-list");
-const paginationEl = document.getElementById("pagination");
+const searchInput   = document.getElementById("search-input");
+const sortSelect    = document.getElementById("sort-select");
+const perPageSelect = document.getElementById("per-page-select");
+const clearBtn      = document.getElementById("clear-filters");
+const favoritesBtn  = document.getElementById("favorites-btn");
+const resultsCount  = document.getElementById("results-count");
+const resultsList   = document.getElementById("results-list");
+const paginationEl  = document.getElementById("pagination");
 
 let currentPage = 1;
-const perPage = 20;
 let debounceTimer = null;
+let showFavoritesOnly = false;
 
-// All multi-select instances
+// Favorites — persisted as a Set of spell IDs in localStorage
+let favorites = new Set(JSON.parse(localStorage.getItem("pfinder_favorites") || "[]"));
+
+function saveFavorites() {
+    localStorage.setItem("pfinder_favorites", JSON.stringify([...favorites]));
+}
+
+// ── MultiSelect instances ─────────────────────────────────────────────────────
 const allMultiSelects = [];
-const msClass          = new MultiSelect("ms-class",           "Class",           "class",           () => searchSpells(1));
-const msSchool         = new MultiSelect("ms-school",          "School",          "school",          () => searchSpells(1));
-const msLevel          = new MultiSelect("ms-level",           "Level",           "level",           () => searchSpells(1));
-const msCastingTime    = new MultiSelect("ms-casting-time",    "Casting Time",    "casting_time",    () => searchSpells(1));
-const msRange          = new MultiSelect("ms-range",           "Range",           "range",           () => searchSpells(1));
-const msArea           = new MultiSelect("ms-area",            "Area / Shape",    "area",            () => searchSpells(1));
-const msDuration       = new MultiSelect("ms-duration",        "Duration",        "duration",        () => searchSpells(1));
-const msSavingThrow    = new MultiSelect("ms-saving-throw",    "Saving Throw",    "saving_throw",    () => searchSpells(1));
-const msSpellResist    = new MultiSelect("ms-spell-resistance","Spell Resistance","spell_resistance",() => searchSpells(1));
-const msSubschool      = new MultiSelect("ms-subschool",       "Subschool",       "subschool",       () => searchSpells(1));
-const msDescriptor     = new MultiSelect("ms-descriptor",      "Descriptor",      "descriptor",      () => searchSpells(1));
-allMultiSelects.push(msClass, msSchool, msLevel, msCastingTime, msRange, msArea, msDuration, msSavingThrow, msSpellResist, msSubschool, msDescriptor);
+const msClass       = new MultiSelect("ms-class",           "Class",             "class",           () => searchSpells(1));
+const msSchool      = new MultiSelect("ms-school",          "School",            "school",          () => searchSpells(1));
+const msLevel       = new MultiSelect("ms-level",           "Level",             "level",           () => searchSpells(1));
+const msCastingTime = new MultiSelect("ms-casting-time",    "Casting Time",      "casting_time",    () => searchSpells(1));
+const msRange       = new MultiSelect("ms-range",           "Range",             "range",           () => searchSpells(1));
+const msArea        = new MultiSelect("ms-area",            "Area / Shape",      "area",            () => searchSpells(1));
+const msComponents  = new MultiSelect("ms-components",      "Exclude Component", "components",      () => searchSpells(1));
+const msDuration    = new MultiSelect("ms-duration",        "Duration",          "duration",        () => searchSpells(1));
+const msSavingThrow = new MultiSelect("ms-saving-throw",    "Saving Throw",      "saving_throw",    () => searchSpells(1));
+const msSpellResist = new MultiSelect("ms-spell-resistance","Spell Resistance",  "spell_resistance",() => searchSpells(1));
+const msSubschool   = new MultiSelect("ms-subschool",       "Subschool",         "subschool",       () => searchSpells(1));
+const msDescriptor  = new MultiSelect("ms-descriptor",      "Descriptor",        "descriptor",      () => searchSpells(1));
+allMultiSelects.push(
+    msClass, msSchool, msLevel, msCastingTime, msRange, msArea,
+    msComponents, msDuration, msSavingThrow, msSpellResist, msSubschool, msDescriptor
+);
 
 // Close all panels when clicking outside
 document.addEventListener("click", () => {
     allMultiSelects.forEach(ms => ms.close());
 });
 
-// Load filter options on startup
+// ── Filter loading ────────────────────────────────────────────────────────────
 async function loadFilters() {
     try {
         const resp = await fetch("/api/filters");
@@ -181,6 +207,7 @@ async function loadFilters() {
         msCastingTime.populate(data.casting_time || []);
         msRange.populate(data.range || []);
         msArea.populate(data.area || []);
+        msComponents.populate(["Verbal", "Somatic", "Material", "Focus", "Divine Focus"]);
         msDuration.populate(data.duration || []);
         msSavingThrow.populate(data.saving_throw || []);
         msSpellResist.populate(data.spell_resistance || []);
@@ -191,19 +218,38 @@ async function loadFilters() {
     }
 }
 
-// Search spells
+// ── Search ────────────────────────────────────────────────────────────────────
 async function searchSpells(page = 1) {
     currentPage = page;
 
+    // Short-circuit for favorites with no saved spells
+    if (showFavoritesOnly && favorites.size === 0) {
+        resultsCount.textContent = "";
+        resultsList.innerHTML = '<div class="no-results">No favorites saved yet. Click ☆ on any spell to save it.</div>';
+        paginationEl.innerHTML = "";
+        updateURL(page);
+        return;
+    }
+
+    const q       = searchInput.value.trim();
+    const sortVal = sortSelect.value;
+    const ppVal   = perPageSelect.value;
+
+    // Build URL state (no API-internal params)
+    updateURL(page);
+
+    // Build API params
     const params = new URLSearchParams();
-    const q = searchInput.value.trim();
     if (q) params.set("q", q);
-    if (sortSelect.value) params.set("sort", sortSelect.value);
+    if (sortVal) params.set("sort", sortVal);
     allMultiSelects.forEach(ms => {
         ms.getSelected().forEach(val => params.append(ms.paramName, val));
     });
-    params.set("page", page);
-    params.set("per_page", perPage);
+    if (showFavoritesOnly) {
+        [...favorites].forEach(id => params.append("id", String(id)));
+    }
+    params.set("page", String(page));
+    params.set("per_page", ppVal);
 
     resultsList.innerHTML = '<div class="loading">Searching...</div>';
     paginationEl.innerHTML = "";
@@ -218,10 +264,25 @@ async function searchSpells(page = 1) {
     }
 }
 
+function updateURL(page) {
+    const state = new URLSearchParams();
+    const q = searchInput.value.trim();
+    if (q) state.set("q", q);
+    if (sortSelect.value) state.set("sort", sortSelect.value);
+    if (perPageSelect.value !== "20") state.set("per_page", perPageSelect.value);
+    allMultiSelects.forEach(ms => {
+        ms.getSelected().forEach(val => state.append(ms.paramName, val));
+    });
+    if (showFavoritesOnly) state.set("favorites", "1");
+    if (page > 1) state.set("page", String(page));
+    history.replaceState(null, "", window.location.pathname + (state.toString() ? "?" + state.toString() : ""));
+}
+
+// ── Rendering ─────────────────────────────────────────────────────────────────
 function renderResults(data) {
     const { spells, total, page, pages } = data;
+    const perPage = parseInt(perPageSelect.value) || total;
 
-    // Results count
     if (total === 0) {
         resultsCount.textContent = "No spells found";
         resultsList.innerHTML = '<div class="no-results">No spells match your search. Try different keywords or filters.</div>';
@@ -230,44 +291,44 @@ function renderResults(data) {
     }
 
     const start = (page - 1) * perPage + 1;
-    const end = Math.min(page * perPage, total);
+    const end   = Math.min(page * perPage, total);
     resultsCount.textContent = `Showing ${start}–${end} of ${total} spells`;
 
-    // Render spell cards
     resultsList.innerHTML = "";
     spells.forEach(spell => {
         const card = document.createElement("div");
         card.className = "spell-card";
         card.innerHTML = buildSpellCard(spell);
         card.addEventListener("click", (e) => {
-            if (e.target.closest("a")) return;
+            if (e.target.closest("a") || e.target.closest(".favorite-btn")) return;
             card.classList.toggle("expanded");
         });
         resultsList.appendChild(card);
     });
 
-    // Pagination
     renderPagination(page, pages);
 }
 
 function buildSpellCard(spell) {
     const schoolClass = spell.school ? `school-${spell.school.toLowerCase()}` : "";
-    const shortDesc = spell.short_description || truncate(spell.description, 120);
-    const levelStr = buildLevelString(spell.classes);
+    const shortDesc   = spell.short_description || truncate(spell.description, 120);
+    const levelStr    = buildLevelString(spell.classes);
 
-    // Build components string
     const components = [];
-    if (spell.verbal) components.push("V");
-    if (spell.somatic) components.push("S");
-    if (spell.material) components.push("M");
-    if (spell.focus) components.push("F");
+    if (spell.verbal)       components.push("V");
+    if (spell.somatic)      components.push("S");
+    if (spell.material)     components.push("M");
+    if (spell.focus)        components.push("F");
     if (spell.divine_focus) components.push("DF");
     const compStr = components.join(", ");
 
-    // Full school display
     let schoolFull = capitalize(spell.school || "");
-    if (spell.subschool) schoolFull += ` (${spell.subschool})`;
+    if (spell.subschool)  schoolFull += ` (${spell.subschool})`;
     if (spell.descriptor) schoolFull += ` [${spell.descriptor}]`;
+
+    const isFav     = favorites.has(spell.id);
+    const starTitle = isFav ? "Remove from favorites" : "Add to favorites";
+    const starHtml  = `<button class="favorite-btn${isFav ? " favorited" : ""}" data-spell-id="${spell.id}" title="${starTitle}" aria-label="${starTitle}">${isFav ? "★" : "☆"}</button>`;
 
     let detailsHtml = `
         <div class="detail-row"><span class="detail-label">School</span><span class="detail-value">${esc(schoolFull)}</span></div>
@@ -275,22 +336,20 @@ function buildSpellCard(spell) {
         <div class="detail-row"><span class="detail-label">Casting Time</span><span class="detail-value">${esc(spell.casting_time)}</span></div>
         <div class="detail-row"><span class="detail-label">Components</span><span class="detail-value">${esc(spell.components || compStr)}</span></div>
     `;
-    if (spell.range) detailsHtml += `<div class="detail-row"><span class="detail-label">Range</span><span class="detail-value">${esc(spell.range)}</span></div>`;
-    if (spell.area) detailsHtml += `<div class="detail-row"><span class="detail-label">Area</span><span class="detail-value">${esc(spell.area)}</span></div>`;
-    if (spell.effect) detailsHtml += `<div class="detail-row"><span class="detail-label">Effect</span><span class="detail-value">${esc(spell.effect)}</span></div>`;
-    if (spell.targets) detailsHtml += `<div class="detail-row"><span class="detail-label">Targets</span><span class="detail-value">${esc(spell.targets)}</span></div>`;
-    if (spell.duration) detailsHtml += `<div class="detail-row"><span class="detail-label">Duration</span><span class="detail-value">${esc(spell.duration)}${spell.dismissible ? " (D)" : ""}${spell.shapeable ? " (S)" : ""}</span></div>`;
-    if (spell.saving_throw) detailsHtml += `<div class="detail-row"><span class="detail-label">Saving Throw</span><span class="detail-value">${esc(spell.saving_throw)}</span></div>`;
+    if (spell.range)            detailsHtml += `<div class="detail-row"><span class="detail-label">Range</span><span class="detail-value">${esc(spell.range)}</span></div>`;
+    if (spell.area)             detailsHtml += `<div class="detail-row"><span class="detail-label">Area</span><span class="detail-value">${esc(spell.area)}</span></div>`;
+    if (spell.effect)           detailsHtml += `<div class="detail-row"><span class="detail-label">Effect</span><span class="detail-value">${esc(spell.effect)}</span></div>`;
+    if (spell.targets)          detailsHtml += `<div class="detail-row"><span class="detail-label">Targets</span><span class="detail-value">${esc(spell.targets)}</span></div>`;
+    if (spell.duration)         detailsHtml += `<div class="detail-row"><span class="detail-label">Duration</span><span class="detail-value">${esc(spell.duration)}${spell.dismissible ? " (D)" : ""}${spell.shapeable ? " (S)" : ""}</span></div>`;
+    if (spell.saving_throw)     detailsHtml += `<div class="detail-row"><span class="detail-label">Saving Throw</span><span class="detail-value">${esc(spell.saving_throw)}</span></div>`;
     if (spell.spell_resistance) detailsHtml += `<div class="detail-row"><span class="detail-label">Spell Resist.</span><span class="detail-value">${esc(spell.spell_resistance)}</span></div>`;
-    if (spell.source) detailsHtml += `<div class="detail-row"><span class="detail-label">Source</span><span class="detail-value">${esc(spell.source)}</span></div>`;
+    if (spell.source)           detailsHtml += `<div class="detail-row"><span class="detail-label">Source</span><span class="detail-value">${esc(spell.source)}</span></div>`;
 
-    // Classes as tags
     if (spell.classes && spell.classes.length > 0) {
         const tags = spell.classes.map(c => `<span class="class-tag">${esc(capitalize(c.class_name))} ${c.level}</span>`).join("");
         detailsHtml += `<div class="detail-row"><span class="detail-label">Classes</span><div class="class-list">${tags}</div></div>`;
     }
 
-    // Mythic
     let mythicHtml = "";
     if (spell.mythic && spell.mythic_text) {
         mythicHtml = `<div class="mythic-tag">Mythic</div><div class="spell-description">${esc(spell.mythic_text)}</div>`;
@@ -298,6 +357,7 @@ function buildSpellCard(spell) {
 
     return `
         <div class="spell-header">
+            ${starHtml}
             <span class="spell-name">${esc(spell.name)}</span>
             <span class="spell-school ${schoolClass}">${esc(capitalize(spell.school || ""))}</span>
             <span class="spell-level-badge">${esc(levelStr)}</span>
@@ -314,7 +374,6 @@ function buildSpellCard(spell) {
 
 function buildLevelString(classes) {
     if (!classes || classes.length === 0) return "";
-    // Show a compact summary: min-max level
     const levels = classes.map(c => c.level);
     const min = Math.min(...levels);
     const max = Math.max(...levels);
@@ -326,32 +385,25 @@ function renderPagination(page, pages) {
     paginationEl.innerHTML = "";
     if (pages <= 1) return;
 
-    // Previous
     const prevBtn = document.createElement("button");
     prevBtn.textContent = "\u2190";
     prevBtn.disabled = page <= 1;
     prevBtn.addEventListener("click", () => searchSpells(page - 1));
     paginationEl.appendChild(prevBtn);
 
-    // Page numbers (show up to 7 pages around current)
     const start = Math.max(1, page - 3);
-    const end = Math.min(pages, page + 3);
+    const end   = Math.min(pages, page + 3);
 
     if (start > 1) {
         addPageBtn(1);
         if (start > 2) addEllipsis();
     }
-
-    for (let i = start; i <= end; i++) {
-        addPageBtn(i, i === page);
-    }
-
+    for (let i = start; i <= end; i++) addPageBtn(i, i === page);
     if (end < pages) {
         if (end < pages - 1) addEllipsis();
         addPageBtn(pages);
     }
 
-    // Next
     const nextBtn = document.createElement("button");
     nextBtn.textContent = "\u2192";
     nextBtn.disabled = page >= pages;
@@ -375,7 +427,7 @@ function renderPagination(page, pages) {
     }
 }
 
-// Utility functions
+// ── Utility ───────────────────────────────────────────────────────────────────
 function capitalize(s) {
     if (!s) return "";
     return s.split(/[\s/]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" / ").replace(" / ", "/");
@@ -394,29 +446,88 @@ function esc(s) {
     return div.innerHTML;
 }
 
-// Event listeners
+// ── Event listeners ───────────────────────────────────────────────────────────
 searchInput.addEventListener("input", () => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => searchSpells(1), 300);
 });
 
-sortSelect.addEventListener("change", () => searchSpells(1));
+searchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { clearTimeout(debounceTimer); searchSpells(1); }
+});
+
+sortSelect.addEventListener("change",    () => searchSpells(1));
+perPageSelect.addEventListener("change", () => searchSpells(1));
 
 clearBtn.addEventListener("click", () => {
     searchInput.value = "";
-    sortSelect.value = "";
+    sortSelect.value  = "";
+    perPageSelect.value = "20";
     allMultiSelects.forEach(ms => ms.reset());
+    showFavoritesOnly = false;
+    favoritesBtn.classList.remove("active");
     searchSpells(1);
 });
 
-// Allow Enter to trigger search immediately
-searchInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-        clearTimeout(debounceTimer);
-        searchSpells(1);
-    }
+favoritesBtn.addEventListener("click", () => {
+    showFavoritesOnly = !showFavoritesOnly;
+    favoritesBtn.classList.toggle("active", showFavoritesOnly);
+    searchSpells(1);
 });
 
-// Initialize
-loadFilters();
-searchSpells(1);
+// Star click — event delegation on the results list
+resultsList.addEventListener("click", (e) => {
+    const starBtn = e.target.closest(".favorite-btn");
+    if (!starBtn) return;
+    e.stopPropagation();
+
+    const id = parseInt(starBtn.dataset.spellId);
+    if (favorites.has(id)) {
+        favorites.delete(id);
+        starBtn.classList.remove("favorited");
+        starBtn.textContent = "☆";
+        starBtn.title = starBtn.ariaLabel = "Add to favorites";
+    } else {
+        favorites.add(id);
+        starBtn.classList.add("favorited");
+        starBtn.textContent = "★";
+        starBtn.title = starBtn.ariaLabel = "Remove from favorites";
+    }
+    saveFavorites();
+    // If in favorites-only view, refresh so the card disappears on unstar
+    if (showFavoritesOnly) searchSpells(currentPage);
+});
+
+// ── URL state restore ─────────────────────────────────────────────────────────
+function restoreFromURL() {
+    const p = new URLSearchParams(window.location.search);
+
+    const q = p.get("q");
+    if (q) searchInput.value = q;
+
+    const sort = p.get("sort");
+    if (sort) sortSelect.value = sort;
+
+    const pp = p.get("per_page");
+    if (pp) perPageSelect.value = pp;
+
+    allMultiSelects.forEach(ms => {
+        const vals = p.getAll(ms.paramName);
+        if (vals.length > 0) ms.setValue(vals);
+    });
+
+    if (p.get("favorites") === "1") {
+        showFavoritesOnly = true;
+        favoritesBtn.classList.add("active");
+    }
+
+    searchSpells(parseInt(p.get("page")) || 1);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+    await loadFilters();
+    restoreFromURL();
+}
+
+init();

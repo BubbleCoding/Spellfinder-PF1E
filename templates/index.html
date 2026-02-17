@@ -44,6 +44,10 @@
                 <div id="ms-area" class="multiselect"></div>
             </div>
             <div class="filter-group">
+                <label>Exclude Component</label>
+                <div id="ms-components" class="multiselect"></div>
+            </div>
+            <div class="filter-group">
                 <label>Duration</label>
                 <div id="ms-duration" class="multiselect"></div>
             </div>
@@ -63,22 +67,34 @@
                 <label>Descriptor</label>
                 <div id="ms-descriptor" class="multiselect"></div>
             </div>
+            <button id="favorites-btn" title="Show favorites only">★ Favorites</button>
             <button id="clear-filters" title="Clear all filters">Clear</button>
         </div>
 
         <div class="results-info">
             <span id="results-count"></span>
-            <div class="sort-control">
-                <label for="sort-select">Sort:</label>
-                <select id="sort-select">
-                    <option value="">Default</option>
-                    <option value="name">Name (A–Z)</option>
-                    <option value="name_desc">Name (Z–A)</option>
-                    <option value="level">Level (Low–High)</option>
-                    <option value="level_desc">Level (High–Low)</option>
-                    <option value="school">School (A–Z)</option>
-                    <option value="school_desc">School (Z–A)</option>
-                </select>
+            <div class="results-controls">
+                <div class="sort-control">
+                    <label for="per-page-select">Show:</label>
+                    <select id="per-page-select">
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="all">All</option>
+                    </select>
+                </div>
+                <div class="sort-control">
+                    <label for="sort-select">Sort:</label>
+                    <select id="sort-select">
+                        <option value="">Default</option>
+                        <option value="name">Name (A–Z)</option>
+                        <option value="name_desc">Name (Z–A)</option>
+                        <option value="level">Level (Low–High)</option>
+                        <option value="level_desc">Level (High–Low)</option>
+                        <option value="school">School (A–Z)</option>
+                        <option value="school_desc">School (Z–A)</option>
+                    </select>
+                </div>
             </div>
         </div>
 

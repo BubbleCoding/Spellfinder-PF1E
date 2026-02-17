@@ -152,7 +152,12 @@ def api_spells():
     levels = [int(l) for l in request.args.getlist("level") if l.strip().lstrip("-").isdigit()]
     sort = request.args.get("sort", "").strip()
     page = max(1, int(request.args.get("page", 1)))
-    per_page = min(100, max(1, int(request.args.get("per_page", 20))))
+    _per_page_raw = request.args.get("per_page", "20").strip()
+    if _per_page_raw.lower() == "all":
+        per_page = 10000  # effectively unlimited
+        page = 1
+    else:
+        per_page = min(500, max(1, int(_per_page_raw)))
     offset = (page - 1) * per_page
 
     params = []
@@ -211,6 +216,26 @@ def api_spells():
                 params.append(f"%{_keyword}%")
         if _like_clauses:
             where_clauses.append("(" + " OR ".join(_like_clauses) + ")")
+
+    # Component exclusion filter (AND semantics — each selected component must be absent)
+    _component_col_map = {
+        "verbal":       "verbal",
+        "somatic":      "somatic",
+        "material":     "material",
+        "focus":        "focus",
+        "divine focus": "divine_focus",
+    }
+    for _comp in request.args.getlist("components"):
+        _col = _component_col_map.get(_comp.lower())
+        if _col:
+            where_clauses.append(f"(s.{_col} = 0 OR s.{_col} IS NULL)")
+
+    # Favorites filter — match a specific set of spell IDs
+    _fav_ids = [int(i) for i in request.args.getlist("id") if i.strip().lstrip("-").isdigit()]
+    if _fav_ids:
+        _ph = ",".join("?" * len(_fav_ids))
+        where_clauses.append(f"s.id IN ({_ph})")
+        params.extend(_fav_ids)
 
     where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
     join_sql = " ".join(joins)
