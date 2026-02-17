@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PFinder — Pathfinder Spell Search</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>PFinder</h1>
+        <p class="subtitle">Pathfinder 1e Spell Search</p>
+    </header>
+
+    <main>
+        <div class="search-bar">
+            <input type="text" id="search-input" placeholder="Search spells... (e.g. fireball, &quot;fire damage&quot;, cure AND wounds)" autofocus>
+        </div>
+
+        <div class="filters">
+            <div class="filter-group">
+                <label>Class</label>
+                <div id="ms-class" class="multiselect"></div>
+            </div>
+            <div class="filter-group">
+                <label>School</label>
+                <div id="ms-school" class="multiselect"></div>
+            </div>
+            <div class="filter-group">
+                <label>Level</label>
+                <div id="ms-level" class="multiselect"></div>
+            </div>
+            <div class="filter-divider"></div>
+            <div class="filter-group">
+                <label>Casting Time</label>
+                <div id="ms-casting-time" class="multiselect"></div>
+            </div>
+            <div class="filter-group">
+                <label>Range</label>
+                <div id="ms-range" class="multiselect"></div>
+            </div>
+            <div class="filter-group">
+                <label>Area</label>
+                <div id="ms-area" class="multiselect"></div>
+            </div>
+            <div class="filter-group">
+                <label>Effect</label>
+                <div id="ms-effect" class="multiselect"></div>
+            </div>
+            <div class="filter-group">
+                <label>Targets</label>
+                <div id="ms-targets" class="multiselect"></div>
+            </div>
+            <div class="filter-group">
+                <label>Duration</label>
+                <div id="ms-duration" class="multiselect"></div>
+            </div>
+            <div class="filter-group">
+                <label>Saving Throw</label>
+                <div id="ms-saving-throw" class="multiselect"></div>
+            </div>
+            <div class="filter-group">
+                <label>Spell Resistance</label>
+                <div id="ms-spell-resistance" class="multiselect"></div>
+            </div>
+            <div class="filter-group">
+                <label>Subschool</label>
+                <div id="ms-subschool" class="multiselect"></div>
+            </div>
+            <div class="filter-group">
+                <label>Descriptor</label>
+                <div id="ms-descriptor" class="multiselect"></div>
+            </div>
+            <button id="clear-filters" title="Clear all filters">Clear</button>
+        </div>
+
+        <div class="results-info">
+            <span id="results-count"></span>
+            <div class="sort-control">
+                <label for="sort-select">Sort:</label>
+                <select id="sort-select">
+                    <option value="">Default</option>
+                    <option value="name">Name (A–Z)</option>
+                    <option value="name_desc">Name (Z–A)</option>
+                    <option value="level">Level (Low–High)</option>
+                    <option value="level_desc">Level (High–Low)</option>
+                    <option value="school">School (A–Z)</option>
+                    <option value="school_desc">School (Z–A)</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="results-list"></div>
+
+        <div class="pagination" id="pagination"></div>
+    </main>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
