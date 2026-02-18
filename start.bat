@@ -1,9 +1,9 @@
 @echo off
 cd /d "%~dp0"
-title PFinder
+title Spellfinder
 
 echo ==========================================
-echo  PFinder - Pathfinder 1e Spell Search
+echo  Spellfinder - Pathfinder 1e Spell Search
 echo ==========================================
 echo.
 
@@ -23,27 +23,36 @@ if errorlevel 1 (
 
 :: Create virtual environment if it doesn't exist
 if not exist ".venv" (
-    echo [1/3] Setting up Python environment...
+    echo [1/4] Setting up Python environment...
     python -m venv .venv
     echo       Done.
 )
 
 :: Install / update dependencies
-echo [2/3] Checking dependencies...
+echo [2/4] Checking dependencies...
 .venv\Scripts\pip install -r requirements.txt -q
 echo       Done.
 
 :: Build database on first run
 if not exist "pfinder.db" (
-    echo [3/3] Building spell database - first run only, please wait...
+    echo [3/4] Building spell database - first run only, please wait...
     .venv\Scripts\python init_db.py
 ) else (
-    echo [3/3] Database ready.
+    echo [3/4] Database ready.
+)
+
+:: Import spell categories if the data file exists
+if exist "categorization\categories_raw.json" (
+    echo [4/4] Importing spell categories...
+    .venv\Scripts\python categorization\import_categories.py
+    echo       Done.
+) else (
+    echo [4/4] No category data found, skipping.
 )
 
 echo.
 echo ==========================================
-echo  PFinder is running!
+echo  Spellfinder is running!
 echo  Your browser will open automatically.
 echo.
 echo  Keep this window open while using it.

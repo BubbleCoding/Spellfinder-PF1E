@@ -2,7 +2,7 @@
 cd "$(dirname "$0")"
 
 echo "=========================================="
-echo " PFinder - Pathfinder 1e Spell Search"
+echo " Spellfinder - Pathfinder 1e Spell Search"
 echo "=========================================="
 echo
 
@@ -19,27 +19,36 @@ fi
 
 # Create virtual environment if it doesn't exist
 if [ ! -d ".venv" ]; then
-    echo "[1/3] Setting up Python environment..."
+    echo "[1/4] Setting up Python environment..."
     python3 -m venv .venv
     echo "      Done."
 fi
 
 # Install / update dependencies
-echo "[2/3] Checking dependencies..."
+echo "[2/4] Checking dependencies..."
 .venv/bin/pip install -r requirements.txt -q
 echo "      Done."
 
 # Build database on first run
 if [ ! -f "pfinder.db" ]; then
-    echo "[3/3] Building spell database - first run only, please wait..."
+    echo "[3/4] Building spell database - first run only, please wait..."
     .venv/bin/python init_db.py
 else
-    echo "[3/3] Database ready."
+    echo "[3/4] Database ready."
+fi
+
+# Import spell categories if the data file exists
+if [ -f "categorization/categories_raw.json" ]; then
+    echo "[4/4] Importing spell categories..."
+    .venv/bin/python categorization/import_categories.py
+    echo "      Done."
+else
+    echo "[4/4] No category data found, skipping."
 fi
 
 echo
 echo "=========================================="
-echo " PFinder is running!"
+echo " Spellfinder is running!"
 echo " Your browser will open automatically."
 echo
 echo " Keep this window open while using it."
