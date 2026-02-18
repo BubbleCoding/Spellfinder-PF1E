@@ -1,7 +1,10 @@
 """Flask app serving the Spellfinder spell search API and frontend."""
 
 import os
+import re
+import shlex
 import sqlite3
+from collections import defaultdict
 
 from flask import Flask, g, jsonify, render_template, request
 
@@ -88,6 +91,182 @@ GROUPED_FILTER_MAPS = {
 }
 
 
+# ── Advanced query field:value parser ─────────────────────────────────────────
+
+# Map query field aliases → canonical field name used in apply_field_clauses
+QUERY_FIELD_MAP = {
+    "class":        "class",
+    "school":       "school",
+    "level":        "level",
+    "domain":       "domain",
+    "deity":        "deity",
+    "bloodline":    "bloodline",
+    "patron":       "patron",
+    "subschool":    "subschool",
+    "descriptor":   "descriptor",
+    "source":       "source",
+    "duration":     "duration",
+    "range":        "range",
+    "cast":         "casting_time",
+    "casting_time": "casting_time",
+    "area":         "area",
+    "target":       "targets",
+    "targets":      "targets",
+    "category":     "category",
+}
+
+# These canonical fields do LIKE '%value%' against a single spells column
+QUERY_LIKE_FIELDS = {
+    "domain", "deity", "bloodline", "patron",
+    "source", "duration", "range", "casting_time", "area", "targets",
+}
+
+# These canonical fields do exact IN/= match against a spells column
+QUERY_EXACT_FIELDS = {"school", "subschool"}
+
+
+def parse_advanced_query(q):
+    """Split a query string into plain FTS text and structured field clauses.
+
+    Tokens of the form  field:value  (e.g. class:wizard, domain:fire) are
+    extracted; everything else is returned as fts_text for FTS5.
+
+    AND / OR between consecutive field:value tokens control how multiple values
+    for the same field combine:
+        class:wizard class:paladin      → OR  (either class)
+        class:wizard AND class:paladin  → AND (both classes required)
+
+    Returns (fts_text: str, field_clauses: list of dicts)
+    Each dict: {'field': str, 'value': str, 'op': 'AND'|'OR'}
+    'op' describes how this clause joins with the previous clause of the same field.
+    """
+    try:
+        tokens = shlex.split(q)
+    except ValueError:
+        tokens = q.split()
+
+    fts_parts = []
+    field_clauses = []
+    pending_op = "OR"
+
+    for tok in tokens:
+        upper = tok.upper()
+        if upper == "AND":
+            pending_op = "AND"
+            continue
+        if upper == "OR":
+            pending_op = "OR"
+            continue
+
+        m = re.match(r"^(\w+):(.+)$", tok, re.IGNORECASE)
+        if m:
+            raw_field = m.group(1).lower()
+            value = m.group(2)
+            # Strip surrounding quotes shlex may have left on the value half
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+                value = value[1:-1]
+            canonical = QUERY_FIELD_MAP.get(raw_field)
+            if canonical:
+                field_clauses.append({"field": canonical, "value": value, "op": pending_op})
+                pending_op = "OR"
+                continue
+
+        # Not a recognised field:value — goes to FTS
+        fts_parts.append(tok)
+        pending_op = "OR"
+
+    return " ".join(fts_parts), field_clauses
+
+
+def apply_field_clauses(field_clauses, where_clauses, params):
+    """Translate parsed field clauses into WHERE conditions and params."""
+    if not field_clauses:
+        return
+
+    grouped = defaultdict(list)
+    for clause in field_clauses:
+        grouped[clause["field"]].append(clause)
+
+    for field, clauses in grouped.items():
+        # has_and: true if any clause (after the first) is AND-connected to its predecessor
+        has_and = any(c["op"] == "AND" for c in clauses[1:])
+
+        if field == "class":
+            if has_and:
+                # Each class value gets its own subquery; all must match (AND in WHERE)
+                for c in clauses:
+                    where_clauses.append(
+                        "s.id IN (SELECT spell_id FROM spell_classes WHERE LOWER(class_name) = ?)"
+                    )
+                    params.append(c["value"].lower())
+            else:
+                ph = ",".join("?" * len(clauses))
+                where_clauses.append(
+                    f"s.id IN (SELECT spell_id FROM spell_classes WHERE LOWER(class_name) IN ({ph}))"
+                )
+                params.extend(c["value"].lower() for c in clauses)
+
+        elif field == "level":
+            valid = []
+            for c in clauses:
+                try:
+                    valid.append(int(c["value"]))
+                except ValueError:
+                    pass
+            if valid:
+                ph = ",".join("?" * len(valid))
+                where_clauses.append(
+                    f"s.id IN (SELECT spell_id FROM spell_classes WHERE level IN ({ph}))"
+                )
+                params.extend(valid)
+
+        elif field == "category":
+            if has_and:
+                for c in clauses:
+                    where_clauses.append(
+                        "s.id IN (SELECT spell_id FROM spell_categories WHERE category = ?)"
+                    )
+                    params.append(c["value"])
+            else:
+                ph = ",".join("?" * len(clauses))
+                where_clauses.append(
+                    f"s.id IN (SELECT spell_id FROM spell_categories WHERE category IN ({ph}))"
+                )
+                params.extend(c["value"] for c in clauses)
+
+        elif field == "descriptor":
+            parts = []
+            for c in clauses:
+                col = DESCRIPTOR_FLAG_MAP.get(c["value"].lower())
+                if col:
+                    parts.append((f"s.{col} = 1", c["op"]))
+            if parts:
+                expr = parts[0][0]
+                for clause_expr, op in parts[1:]:
+                    expr += f" {op} {clause_expr}"
+                where_clauses.append(f"({expr})")
+
+        elif field in QUERY_EXACT_FIELDS:
+            if has_and:
+                for c in clauses:
+                    where_clauses.append(f"LOWER(s.{field}) = ?")
+                    params.append(c["value"].lower())
+            else:
+                ph = ",".join("?" * len(clauses))
+                where_clauses.append(f"LOWER(s.{field}) IN ({ph})")
+                params.extend(c["value"].lower() for c in clauses)
+
+        elif field in QUERY_LIKE_FIELDS:
+            parts = []
+            for c in clauses:
+                parts.append((f"LOWER(s.{field}) LIKE ?", c["op"]))
+                params.append(f"%{c['value'].lower()}%")
+            expr = parts[0][0]
+            for clause_expr, op in parts[1:]:
+                expr += f" {op} {clause_expr}"
+            where_clauses.append(f"({expr})")
+
+
 def get_db():
     if "db" not in g:
         g.db = sqlite3.connect(DB_PATH)
@@ -158,7 +337,8 @@ def api_filters():
 @app.route("/api/spells")
 def api_spells():
     db = get_db()
-    q = request.args.get("q", "").strip()
+    q_raw = request.args.get("q", "").strip()
+    fts_text, field_clauses = parse_advanced_query(q_raw)
     classes = [c.strip().lower() for c in request.args.getlist("class") if c.strip()]
     schools = [s.strip().lower() for s in request.args.getlist("school") if s.strip()]
     levels = [int(l) for l in request.args.getlist("level") if l.strip().lstrip("-").isdigit()]
@@ -177,17 +357,16 @@ def api_spells():
     joins = []
     use_fts = False
 
-    # Full-text search
-    if q:
-        # Convert the user query to an FTS5 query.
-        # Simple approach: wrap each word with * for prefix matching.
-        fts_query = build_fts_query(q)
+    # Full-text search (plain text remaining after field:value extraction)
+    if fts_text.strip():
+        fts_query = build_fts_query(fts_text)
         use_fts = True
-        joins.append(
-            "JOIN spells_fts ON spells_fts.rowid = s.id"
-        )
+        joins.append("JOIN spells_fts ON spells_fts.rowid = s.id")
         where_clauses.append("spells_fts MATCH ?")
         params.append(fts_query)
+
+    # Field:value clauses parsed from the query string
+    apply_field_clauses(field_clauses, where_clauses, params)
 
     # Class / level filters (both join spell_classes)
     if classes or levels:
