@@ -173,6 +173,7 @@ function saveFavorites() {
 
 // ── MultiSelect instances ─────────────────────────────────────────────────────
 const allMultiSelects = [];
+const msCategory    = new MultiSelect("ms-category",        "Category",          "category",        () => searchSpells(1));
 const msClass       = new MultiSelect("ms-class",           "Class",             "class",           () => searchSpells(1));
 const msSchool      = new MultiSelect("ms-school",          "School",            "school",          () => searchSpells(1));
 const msLevel       = new MultiSelect("ms-level",           "Level",             "level",           () => searchSpells(1));
@@ -186,7 +187,7 @@ const msSpellResist = new MultiSelect("ms-spell-resistance","Spell Resistance", 
 const msSubschool   = new MultiSelect("ms-subschool",       "Subschool",         "subschool",       () => searchSpells(1));
 const msDescriptor  = new MultiSelect("ms-descriptor",      "Descriptor",        "descriptor",      () => searchSpells(1));
 allMultiSelects.push(
-    msClass, msSchool, msLevel, msCastingTime, msRange, msArea,
+    msCategory, msClass, msSchool, msLevel, msCastingTime, msRange, msArea,
     msComponents, msDuration, msSavingThrow, msSpellResist, msSubschool, msDescriptor
 );
 
@@ -201,6 +202,7 @@ async function loadFilters() {
         const resp = await fetch("/api/filters");
         const data = await resp.json();
 
+        msCategory.populate(data.categories || []);
         msClass.populate(data.classes || []);
         msSchool.populate(data.schools || []);
         msLevel.populate(["0","1","2","3","4","5","6","7","8","9"]);

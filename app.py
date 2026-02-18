@@ -120,6 +120,7 @@ def api_filters():
 
     # subschool is still exact-match with dynamic values
     result = {"classes": classes, "schools": schools, "sources": sources}
+    result["categories"] = ["Damage", "Buff", "Debuff", "Control", "Protection", "Movement", "Utility"]
     result["subschool"] = [
         r[0]
         for r in db.execute(
@@ -194,6 +195,14 @@ def api_spells():
         _ph = ",".join("?" * len(schools))
         where_clauses.append(f"LOWER(s.school) IN ({_ph})")
         params.extend(schools)
+
+    # Category filter (join on spell_categories table)
+    categories = [c.strip() for c in request.args.getlist("category") if c.strip()]
+    if categories:
+        joins.append("JOIN spell_categories sc_cat ON sc_cat.spell_id = s.id")
+        _ph = ",".join("?" * len(categories))
+        where_clauses.append(f"sc_cat.category IN ({_ph})")
+        params.extend(categories)
 
     # Exact-match filter: subschool only
     _subschool_values = request.args.getlist("subschool")
