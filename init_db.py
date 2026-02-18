@@ -99,6 +99,8 @@ CREATE TABLE IF NOT EXISTS spells (
     deity TEXT,
     bloodline TEXT,
     patron TEXT,
+    spirit TEXT,
+    mystery TEXT,
     augmented TEXT,
     linktext TEXT,
     haunt_statistics TEXT,

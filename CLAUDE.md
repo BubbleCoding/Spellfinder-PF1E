@@ -24,10 +24,11 @@ Spellfinder/
 ├── templates/
 │   └── index.html      # Main page template
 └── categorization/
-    ├── categorize_spells.py    # Calls OpenAI API to assign gameplay categories; saves categories_raw.json
-    ├── import_categories.py    # Reads categories_raw.json and populates spell_categories table
-    ├── categories_raw.json     # LLM output checkpoint (committed to git)
-    └── requirements.txt        # openai
+    ├── categorize_spells.py        # Calls OpenAI API to assign gameplay categories; saves categories_raw.json
+    ├── import_categories.py        # Reads categories_raw.json and populates spell_categories table
+    ├── import_spirit_mystery.py    # Reads spirit and mystery.xlsx; updates spirit/mystery columns on spells table
+    ├── categories_raw.json         # LLM output checkpoint (committed to git)
+    └── requirements.txt            # openai, openpyxl
 ```
 
 ## Running
@@ -36,27 +37,29 @@ Spellfinder/
 - Windows: double-click `start.bat`
 - Mac/Linux: `bash start.sh`
 
-The launcher (4 steps):
+The launcher (5 steps):
 1. Creates venv if missing
 2. Installs dependencies
-3. Builds `pfinder.db` on first run; auto-detects schema changes and rebuilds after updates (probes for `description_formatted` column)
+3. Builds `pfinder.db` on first run; probes `SELECT spirit FROM spells LIMIT 1` to auto-detect schema changes and rebuild
 4. Auto-imports spell categories from `categorization/categories_raw.json` if present
+5. If `spirit and mystery.xlsx` is present in the project root, installs openpyxl and runs `import_spirit_mystery.py`
 
 Only prerequisite is Python installed on the machine.
 
 **Manual:**
 ```
 .venv\Scripts\activate
-python init_db.py                          # first time only
-python categorization/import_categories.py # first time only (requires categories_raw.json)
-python app.py                              # starts Flask on http://localhost:5000
+python init_db.py                                      # first time only
+python categorization/import_categories.py             # first time only (requires categories_raw.json)
+python categorization/import_spirit_mystery.py         # optional; requires spirit and mystery.xlsx
+python app.py                                          # starts Flask on http://localhost:5000
 ```
 
 ## API endpoints
 
 - `GET /` — serves the frontend
 - `GET /api/spells` — search endpoint
-  - `q` — full-text search (FTS5 MATCH across all indexed fields)
+  - `q` — full-text search (FTS5 MATCH across all indexed fields); also supports `field:value` tokens
   - `class` — multi-value: filter by class name
   - `school` — multi-value: filter by school
   - `level` — multi-value: filter by specific spell levels (e.g. `level=2&level=4`)
@@ -73,9 +76,28 @@ python app.py                              # starts Flask on http://localhost:50
   - `page` / `per_page` — pagination (default 20; `per_page=all` returns up to 10,000)
 - `GET /api/filters` — returns distinct values for all filter dropdowns
 
+## Advanced query field:value syntax
+
+Supported in the search box. Tokens of the form `field:value` are extracted from the query string; the rest goes to FTS5.
+
+`QUERY_FIELD_MAP` in `app.py` maps aliases to canonical field names:
+
+| Alias(es) | Field | Matching |
+|---|---|---|
+| `class` | class | Subquery on spell_classes; AND = both required, OR = either |
+| `level` | level | Subquery on spell_classes |
+| `category` | category | Subquery on spell_categories |
+| `descriptor` | descriptor | Boolean flag columns via DESCRIPTOR_FLAG_MAP |
+| `school`, `subschool` | school / subschool | Exact IN/= |
+| `domain`, `deity`, `bloodline`, `patron`, `spirit`, `mystery` | text columns | LIKE '%value%' |
+| `source`, `duration`, `range`, `area`, `target`/`targets` | text columns | LIKE '%value%' |
+| `cast`, `casting_time` | casting_time | LIKE '%value%' |
+
+Examples: `class:wizard AND class:paladin`, `domain:fire`, `spirit:flame`, `mystery:ancestor`, `deity:asmodeus`
+
 ## Filter types
 
-`GROUPED_FILTER_MAPS` in `app.py` maps param values to `(db_field, keyword)` pairs for `LIKE '%keyword%'` matching. This allows a single option to match across multiple columns (e.g. area filter matches both `area` and `effect`).
+`GROUPED_FILTER_MAPS` in `app.py` maps param values to `(db_field, keyword)` pairs for `LIKE '%keyword%'` matching.
 
 1. **Exact match** (`IN` clause) — `class`, `school`, `level`, `subschool`, `category`
 2. **Grouped LIKE match** (`LIKE '%keyword%'` with OR) — `casting_time`, `range`, `duration`, `saving_throw`, `spell_resistance`, `area`
@@ -91,16 +113,31 @@ Multiple values within a single filter are OR. Filters across different fields a
 - **Favorites** — star button on each card, persisted in `localStorage` as a set of spell IDs; favorites-only toggle in filter bar
 - **Per-page control** — 20 / 50 / 100 / All
 - **Spell cards** — collapsed view shows name, short description, school badge, level range, and category tags; click to expand full details + link to Archives of Nethys
-- **Expanded card extras** — formatted HTML description, material cost (gp), deity, domain, bloodline, patron rows when present
+- **Expanded card extras** — formatted HTML description, material cost (gp), deity, domain, bloodline, patron, spirit, mystery rows when present
 
 Filter order: Category, Class, School, Level | Casting Time, Range, Area, Exclude Component, Duration, Saving Throw, Spell Resistance, Subschool, Descriptor
 
 ## Database schema
 
-- **spells** — all CSV columns except `full_text` (91 columns total): structured fields + 25 descriptor flag integers (`acid`, `fire`, `mind_affecting`, etc.) + 26 per-class level integers (`sor`, `wiz`, `cleric`, etc.) + extended text fields (`description_formatted`, `domain`, `deity`, `bloodline`, `patron`, `augmented`, `linktext`, `haunt_statistics`) + `SLA_Level`, `material_costs`, `ruse`, `draconic`, `meditative`
-- **spell_classes** — normalized class/level mapping (spell_id, class_name, level), parsed from the `spell_level` CSV column
+- **spells** — 93 columns total: all CSV fields except `full_text` + `spirit TEXT` + `mystery TEXT`
+  - Structured fields: name, school, subschool, descriptor, spell_level, casting_time, etc.
+  - 25 descriptor flag integers: `acid`, `air`, `chaotic`, `cold`, `curse`, `darkness`, `death`, `disease`, `earth`, `electricity`, `emotion`, `evil`, `fear`, `fire`, `force`, `good`, `language_dependent`, `lawful`, `light`, `mind_affecting`, `pain`, `poison`, `shadow`, `sonic`, `water`
+  - 26 per-class level integers: `sor`, `wiz`, `cleric`, `druid`, `ranger`, `bard`, `paladin`, `alchemist`, `summoner`, `witch`, `inquisitor`, `oracle`, `antipaladin`, `magus`, `adept`, `bloodrager`, `shaman`, `psychic`, `medium`, `mesmerist`, `occultist`, `spiritualist`, `skald`, `investigator`, `hunter`, `summoner_unchained`
+  - Extended text: `description_formatted`, `domain`, `deity`, `bloodline`, `patron`, `spirit`, `mystery`, `augmented`, `linktext`, `haunt_statistics`
+  - Extended integers: `SLA_Level`, `material_costs`, `ruse`, `draconic`, `meditative`
+- **spell_classes** — normalized class/level mapping (spell_id, class_name, level), parsed from the `spell_level` CSV column; contains only actual classes (no spirit/mystery entries)
 - **spell_categories** — gameplay category tags (spell_id, category); many-to-many. Created empty by `init_db.py`, populated by `import_categories.py`.
 - **spells_fts** — FTS5 virtual table indexing name, description, short_description, school, subschool, descriptor, spell_level, casting_time, components, range, area, effect, targets, duration, saving_throw, spell_resistance, source
+
+## Spirit and mystery spells
+
+Shaman spirit magic spells and oracle mystery bonus spells are not in the source CSV. They are imported from a user-supplied `spirit and mystery.xlsx` file in the project root.
+
+`import_spirit_mystery.py` reads the Excel file and writes:
+- `spells.spirit` — comma-separated list of spirit names for each spell (e.g. `"Flame, Battle"`)
+- `spells.mystery` — comma-separated list of mystery names for each spell (e.g. `"Flame, Ancestor"`)
+
+The script is idempotent: it NULLs both columns before re-populating. Name lookup uses several fallbacks: exact match → strip parenthetical qualifier → adjective reversal ("greater X" → "X, Greater") → Unicode apostrophe normalization. Known source typos are corrected via `NAME_FIXES`.
 
 ## Spell categories
 
@@ -121,6 +158,6 @@ Categorization scripts live in `categorization/`. `categories_raw.json` is commi
 - AoN links use `spell.linktext` when available, falling back to `spell.name`: `https://aonprd.com/SpellDisplay.aspx?ItemName=<linktext>`
 - `description_formatted` contains HTML from the CSV source; rendered with `innerHTML` (trusted local data, not user input)
 - Two CSV column names differ from DB column names: `language-dependent` → `language_dependent`, `mind-affecting` → `mind_affecting`; handled by `CSV_COL_MAP` in `init_db.py`
-- Schema version detection in launchers: probes `SELECT description_formatted FROM spells LIMIT 1` to trigger auto-rebuild on outdated DBs
+- Schema version detection in launchers: probes `SELECT spirit FROM spells LIMIT 1` to trigger auto-rebuild on outdated DBs
 - 28 distinct classes, 11 schools, 154 sources in the dataset
 - The venv uses Python 3.14 on this machine

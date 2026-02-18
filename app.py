@@ -102,6 +102,8 @@ QUERY_FIELD_MAP = {
     "deity":        "deity",
     "bloodline":    "bloodline",
     "patron":       "patron",
+    "spirit":       "spirit",
+    "mystery":      "mystery",
     "subschool":    "subschool",
     "descriptor":   "descriptor",
     "source":       "source",
@@ -117,7 +119,7 @@ QUERY_FIELD_MAP = {
 
 # These canonical fields do LIKE '%value%' against a single spells column
 QUERY_LIKE_FIELDS = {
-    "domain", "deity", "bloodline", "patron",
+    "domain", "deity", "bloodline", "patron", "spirit", "mystery",
     "source", "duration", "range", "casting_time", "area", "targets",
 }
 

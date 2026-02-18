@@ -350,7 +350,9 @@ function buildSpellCard(spell) {
     if (spell.deity)      detailsHtml += `<div class="detail-row"><span class="detail-label">Deity</span><span class="detail-value">${esc(spell.deity)}</span></div>`;
     if (spell.domain)     detailsHtml += `<div class="detail-row"><span class="detail-label">Domain</span><span class="detail-value">${esc(spell.domain)}</span></div>`;
     if (spell.bloodline)  detailsHtml += `<div class="detail-row"><span class="detail-label">Bloodline</span><span class="detail-value">${esc(spell.bloodline)}</span></div>`;
-    if (spell.patron)     detailsHtml += `<div class="detail-row"><span class="detail-label">Patron</span><span class="detail-value">${esc(spell.patron)}</span></div>`;
+    if (spell.patron)   detailsHtml += `<div class="detail-row"><span class="detail-label">Patron</span><span class="detail-value">${esc(spell.patron)}</span></div>`;
+    if (spell.spirit)   detailsHtml += `<div class="detail-row"><span class="detail-label">Spirit</span><span class="detail-value">${esc(spell.spirit)}</span></div>`;
+    if (spell.mystery)  detailsHtml += `<div class="detail-row"><span class="detail-label">Mystery</span><span class="detail-value">${esc(spell.mystery)}</span></div>`;
 
     if (spell.classes && spell.classes.length > 0) {
         const tags = spell.classes.map(c => `<span class="class-tag">${esc(capitalize(c.class_name))} ${c.level}</span>`).join("");
