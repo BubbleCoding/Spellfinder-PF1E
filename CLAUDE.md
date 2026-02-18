@@ -1,4 +1,4 @@
-# PFinder — Pathfinder 1e Spell Search
+# Spellfinder — Pathfinder 1e Spell Search
 
 Local web app for searching all 2,905 Pathfinder 1e spells with full-text search and filters.
 
@@ -11,7 +11,7 @@ Local web app for searching all 2,905 Pathfinder 1e spells with full-text search
 ## Project structure
 
 ```
-PFinder/
+Spellfinder/
 ├── app.py              # Flask app: API routes + serves frontend
 ├── init_db.py          # Downloads CSV from GitHub, parses it, loads into SQLite with FTS5
 ├── pfinder.db          # SQLite database (generated, gitignored)

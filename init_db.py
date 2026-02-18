@@ -134,7 +134,7 @@ def clean_int(val: str) -> int:
 
 def download_csv() -> str:
     print(f"Downloading spells.csv from GitHub...")
-    req = urllib.request.Request(CSV_URL, headers={"User-Agent": "PFinder/1.0"})
+    req = urllib.request.Request(CSV_URL, headers={"User-Agent": "Spellfinder/1.0"})
     with urllib.request.urlopen(req) as resp:
         data = resp.read().decode("utf-8-sig")  # handle BOM if present
     print(f"Downloaded {len(data):,} bytes.")

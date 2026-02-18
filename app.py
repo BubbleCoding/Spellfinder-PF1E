@@ -1,4 +1,4 @@
-"""Flask app serving the PFinder spell search API and frontend."""
+"""Flask app serving the Spellfinder spell search API and frontend."""
 
 import os
 import sqlite3

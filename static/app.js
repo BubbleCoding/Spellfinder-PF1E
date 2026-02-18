@@ -1,4 +1,4 @@
-// PFinder — frontend logic
+// Spellfinder — frontend logic
 
 // ── MultiSelect component ─────────────────────────────────────────────────────
 class MultiSelect {
@@ -165,10 +165,10 @@ let debounceTimer = null;
 let showFavoritesOnly = false;
 
 // Favorites — persisted as a Set of spell IDs in localStorage
-let favorites = new Set(JSON.parse(localStorage.getItem("pfinder_favorites") || "[]"));
+let favorites = new Set(JSON.parse(localStorage.getItem("spellfinder_favorites") || "[]"));
 
 function saveFavorites() {
-    localStorage.setItem("pfinder_favorites", JSON.stringify([...favorites]));
+    localStorage.setItem("spellfinder_favorites", JSON.stringify([...favorites]));
 }
 
 // ── MultiSelect instances ─────────────────────────────────────────────────────
