@@ -33,12 +33,18 @@ echo [2/4] Checking dependencies...
 .venv\Scripts\pip install -r requirements.txt -q
 echo       Done.
 
-:: Build database on first run
+:: Build database on first run, or rebuild if schema is outdated
 if not exist "pfinder.db" (
     echo [3/4] Building spell database - first run only, please wait...
     .venv\Scripts\python init_db.py
 ) else (
-    echo [3/4] Database ready.
+    .venv\Scripts\python -c "import sqlite3; c=sqlite3.connect('pfinder.db'); c.execute('SELECT description_formatted FROM spells LIMIT 1'); c.close()" >nul 2>&1
+    if errorlevel 1 (
+        echo [3/4] Database schema update detected, rebuilding - please wait...
+        .venv\Scripts\python init_db.py
+    ) else (
+        echo [3/4] Database ready.
+    )
 )
 
 :: Import spell categories if the data file exists

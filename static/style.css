@@ -490,6 +490,11 @@ main {
     color: var(--accent);
 }
 
+.spell-description p { margin-bottom: 0.5rem; }
+.spell-description p:last-child { margin-bottom: 0; }
+.spell-description i { font-style: italic; color: var(--text-dim); }
+.material-cost { color: var(--accent-dim); font-size: 0.88em; }
+
 .spell-details .mythic-tag {
     display: inline-block;
     margin-top: 0.6rem;

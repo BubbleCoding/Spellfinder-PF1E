@@ -13,7 +13,7 @@ CSV_URL = (
 )
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pfinder.db")
 
-# Columns we store in the spells table (order matters for INSERT)
+# All columns stored in the spells table (order must match CREATE_SPELLS and INSERT)
 SPELL_COLS = [
     "name", "school", "subschool", "descriptor",
     "spell_level",  # raw string like "sorcerer/wizard 2, magus 2"
@@ -25,7 +25,44 @@ SPELL_COLS = [
     "source",
     "verbal", "somatic", "material", "focus", "divine_focus",
     "mythic_text", "mythic",
+    # Extended text fields
+    "description_formatted", "domain", "deity", "bloodline",
+    "patron", "augmented", "linktext", "haunt_statistics",
+    # Extended integer fields
+    "SLA_Level", "material_costs",
+    "ruse", "draconic", "meditative",
+    # Descriptor flag columns
+    "acid", "air", "chaotic", "cold", "curse", "darkness", "death", "disease",
+    "earth", "electricity", "emotion", "evil", "fear", "fire", "force", "good",
+    "language_dependent", "lawful", "light", "mind_affecting", "pain",
+    "poison", "shadow", "sonic", "water",
+    # Per-class level columns
+    "sor", "wiz", "cleric", "druid", "ranger", "bard", "paladin", "alchemist",
+    "summoner", "witch", "inquisitor", "oracle", "antipaladin", "magus", "adept",
+    "bloodrager", "shaman", "psychic", "medium", "mesmerist", "occultist",
+    "spiritualist", "skald", "investigator", "hunter", "summoner_unchained",
 ]
+
+# Columns that hold integers (all others are TEXT)
+INT_COLS = {
+    "costly_components", "dismissible", "shapeable",
+    "verbal", "somatic", "material", "focus", "divine_focus", "mythic",
+    "SLA_Level", "material_costs", "ruse", "draconic", "meditative",
+    "acid", "air", "chaotic", "cold", "curse", "darkness", "death", "disease",
+    "earth", "electricity", "emotion", "evil", "fear", "fire", "force", "good",
+    "language_dependent", "lawful", "light", "mind_affecting", "pain",
+    "poison", "shadow", "sonic", "water",
+    "sor", "wiz", "cleric", "druid", "ranger", "bard", "paladin", "alchemist",
+    "summoner", "witch", "inquisitor", "oracle", "antipaladin", "magus", "adept",
+    "bloodrager", "shaman", "psychic", "medium", "mesmerist", "occultist",
+    "spiritualist", "skald", "investigator", "hunter", "summoner_unchained",
+}
+
+# DB column name → CSV column name (only when they differ)
+CSV_COL_MAP = {
+    "language_dependent": "language-dependent",
+    "mind_affecting": "mind-affecting",
+}
 
 CREATE_SPELLS = """
 CREATE TABLE IF NOT EXISTS spells (
@@ -56,7 +93,71 @@ CREATE TABLE IF NOT EXISTS spells (
     focus INTEGER,
     divine_focus INTEGER,
     mythic_text TEXT,
-    mythic INTEGER
+    mythic INTEGER,
+    description_formatted TEXT,
+    domain TEXT,
+    deity TEXT,
+    bloodline TEXT,
+    patron TEXT,
+    augmented TEXT,
+    linktext TEXT,
+    haunt_statistics TEXT,
+    SLA_Level INTEGER,
+    material_costs INTEGER,
+    ruse INTEGER,
+    draconic INTEGER,
+    meditative INTEGER,
+    acid INTEGER,
+    air INTEGER,
+    chaotic INTEGER,
+    cold INTEGER,
+    curse INTEGER,
+    darkness INTEGER,
+    death INTEGER,
+    disease INTEGER,
+    earth INTEGER,
+    electricity INTEGER,
+    emotion INTEGER,
+    evil INTEGER,
+    fear INTEGER,
+    fire INTEGER,
+    force INTEGER,
+    good INTEGER,
+    language_dependent INTEGER,
+    lawful INTEGER,
+    light INTEGER,
+    mind_affecting INTEGER,
+    pain INTEGER,
+    poison INTEGER,
+    shadow INTEGER,
+    sonic INTEGER,
+    water INTEGER,
+    sor INTEGER,
+    wiz INTEGER,
+    cleric INTEGER,
+    druid INTEGER,
+    ranger INTEGER,
+    bard INTEGER,
+    paladin INTEGER,
+    alchemist INTEGER,
+    summoner INTEGER,
+    witch INTEGER,
+    inquisitor INTEGER,
+    oracle INTEGER,
+    antipaladin INTEGER,
+    magus INTEGER,
+    adept INTEGER,
+    bloodrager INTEGER,
+    shaman INTEGER,
+    psychic INTEGER,
+    medium INTEGER,
+    mesmerist INTEGER,
+    occultist INTEGER,
+    spiritualist INTEGER,
+    skald INTEGER,
+    investigator INTEGER,
+    hunter INTEGER,
+    summoner_unchained INTEGER
 );
 """
 
@@ -103,6 +204,17 @@ CREATE VIRTUAL TABLE IF NOT EXISTS spells_fts USING fts5(
 );
 """
 
+# Pre-build INSERT SQL from SPELL_COLS
+_col_names_sql = ", ".join(SPELL_COLS)
+_placeholders_sql = ", ".join("?" * len(SPELL_COLS))
+INSERT_WITH_ID_SQL = (
+    f"INSERT OR REPLACE INTO spells (id, {_col_names_sql}) "
+    f"VALUES (?, {_placeholders_sql})"
+)
+INSERT_NO_ID_SQL = (
+    f"INSERT INTO spells ({_col_names_sql}) VALUES ({_placeholders_sql})"
+)
+
 
 def parse_spell_level(raw: str):
     """Parse 'sorcerer/wizard 2, magus 2' into [(class, level), ...]."""
@@ -141,6 +253,12 @@ def clean_int(val: str) -> int:
         return 0
 
 
+def get_csv_val(row: dict, col: str) -> str:
+    """Get the raw CSV value for a DB column, accounting for name differences."""
+    csv_col = CSV_COL_MAP.get(col, col)
+    return row.get(csv_col, "")
+
+
 def download_csv() -> str:
     print(f"Downloading spells.csv from GitHub...")
     req = urllib.request.Request(CSV_URL, headers={"User-Agent": "Spellfinder/1.0"})
@@ -177,70 +295,26 @@ def build_db(csv_text: str):
             # Use auto-increment if no id
             spell_id = None
 
-        values = {
-            "name": clean(row.get("name", "")),
-            "school": clean(row.get("school", "")),
-            "subschool": clean(row.get("subschool", "")),
-            "descriptor": clean(row.get("descriptor", "")),
-            "spell_level": clean(row.get("spell_level", "")),
-            "casting_time": clean(row.get("casting_time", "")),
-            "components": clean(row.get("components", "")),
-            "costly_components": clean_int(row.get("costly_components", "0")),
-            "range": clean(row.get("range", "")),
-            "area": clean(row.get("area", "")),
-            "effect": clean(row.get("effect", "")),
-            "targets": clean(row.get("targets", "")),
-            "duration": clean(row.get("duration", "")),
-            "dismissible": clean_int(row.get("dismissible", "0")),
-            "shapeable": clean_int(row.get("shapeable", "0")),
-            "saving_throw": clean(row.get("saving_throw", "")),
-            "spell_resistance": clean(row.get("spell_resistance", "")),
-            "description": clean(row.get("description", "")),
-            "short_description": clean(row.get("short_description", "")),
-            "source": clean(row.get("source", "")),
-            "verbal": clean_int(row.get("verbal", "0")),
-            "somatic": clean_int(row.get("somatic", "0")),
-            "material": clean_int(row.get("material", "0")),
-            "focus": clean_int(row.get("focus", "0")),
-            "divine_focus": clean_int(row.get("divine_focus", "0")),
-            "mythic_text": clean(row.get("mythic_text", "")),
-            "mythic": clean_int(row.get("mythic", "0")),
-        }
+        # Build values for all SPELL_COLS in order
+        values = []
+        for col in SPELL_COLS:
+            raw = get_csv_val(row, col)
+            if col in INT_COLS:
+                values.append(clean_int(raw))
+            else:
+                values.append(clean(raw))
 
         if spell_id is not None:
-            cur.execute(
-                """INSERT OR REPLACE INTO spells
-                   (id, name, school, subschool, descriptor, spell_level,
-                    casting_time, components, costly_components,
-                    range, area, effect, targets, duration,
-                    dismissible, shapeable,
-                    saving_throw, spell_resistance,
-                    description, short_description, source,
-                    verbal, somatic, material, focus, divine_focus,
-                    mythic_text, mythic)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (spell_id, *values.values()),
-            )
+            cur.execute(INSERT_WITH_ID_SQL, (spell_id, *values))
         else:
-            cur.execute(
-                """INSERT INTO spells
-                   (name, school, subschool, descriptor, spell_level,
-                    casting_time, components, costly_components,
-                    range, area, effect, targets, duration,
-                    dismissible, shapeable,
-                    saving_throw, spell_resistance,
-                    description, short_description, source,
-                    verbal, somatic, material, focus, divine_focus,
-                    mythic_text, mythic)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                tuple(values.values()),
-            )
+            cur.execute(INSERT_NO_ID_SQL, values)
             spell_id = cur.lastrowid
 
         spell_count += 1
 
-        # Parse class/level associations
-        for class_name, level in parse_spell_level(values["spell_level"]):
+        # Parse class/level associations from the spell_level text column
+        spell_level_raw = values[SPELL_COLS.index("spell_level")]
+        for class_name, level in parse_spell_level(spell_level_raw):
             cur.execute(
                 "INSERT INTO spell_classes (spell_id, class_name, level) VALUES (?,?,?)",
                 (spell_id, class_name, level),

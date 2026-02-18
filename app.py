@@ -17,6 +17,18 @@ _DESCRIPTOR_TAGS = [
     "Disease", "Death", "Pain", "Meditative", "Ruse", "Draconic",
 ]
 
+DESCRIPTOR_FLAG_MAP = {
+    "acid": "acid", "air": "air", "chaotic": "chaotic", "cold": "cold",
+    "curse": "curse", "darkness": "darkness", "death": "death",
+    "disease": "disease", "earth": "earth", "electricity": "electricity",
+    "emotion": "emotion", "evil": "evil", "fear": "fear", "fire": "fire",
+    "force": "force", "good": "good", "language-dependent": "language_dependent",
+    "lawful": "lawful", "light": "light", "mind-affecting": "mind_affecting",
+    "pain": "pain", "poison": "poison", "shadow": "shadow", "sonic": "sonic",
+    "water": "water", "meditative": "meditative", "ruse": "ruse",
+    "draconic": "draconic",
+}
+
 GROUPED_FILTER_MAPS = {
     "casting_time": {
         "standard action":   ("casting_time", "standard"),
@@ -48,7 +60,6 @@ GROUPED_FILTER_MAPS = {
         "concentration":    ("duration", "concentration"),
         "until discharged": ("duration", "discharged"),
     },
-    "descriptor": {t.lower(): ("descriptor", t.lower()) for t in _DESCRIPTOR_TAGS},
     "saving_throw": {
         "will":      ("saving_throw", "will"),
         "fortitude": ("saving_throw", "fortitude"),
@@ -225,6 +236,17 @@ def api_spells():
                 params.append(f"%{_keyword}%")
         if _like_clauses:
             where_clauses.append("(" + " OR ".join(_like_clauses) + ")")
+
+    # Descriptor boolean filter — each selected descriptor maps to a flag column
+    _descriptor_values = request.args.getlist("descriptor")
+    if _descriptor_values:
+        _desc_clauses = []
+        for v in _descriptor_values:
+            col = DESCRIPTOR_FLAG_MAP.get(v.lower())
+            if col:
+                _desc_clauses.append(f"s.{col} = 1")
+        if _desc_clauses:
+            where_clauses.append("(" + " OR ".join(_desc_clauses) + ")")
 
     # Component exclusion filter (AND semantics — each selected component must be absent)
     _component_col_map = {
