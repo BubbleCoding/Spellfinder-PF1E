@@ -1,6 +1,6 @@
 # Spellfinder — Pathfinder 1e Spell Search
 
-A local web app for searching all 2,905 Pathfinder 1e spells with full-text search and filters.
+A local web app for searching all 2,905 Pathfinder 1e spells with full-text search, filters, and persistent spellbooks.
 
 ## Features
 
@@ -12,11 +12,24 @@ A local web app for searching all 2,905 Pathfinder 1e spells with full-text sear
 - Spell card details: material cost, deity, domain, bloodline, patron, spirit, and mystery info
 - Shaman spirit and oracle mystery spell lists (from `spirit and mystery.xlsx`)
 - Advanced field search syntax: `class:wizard AND class:paladin`, `domain:fire`, `spirit:flame`, `mystery:ancestor`
-- Favorites — star any spell; persisted across sessions
+- Favorites — star any spell; persisted across sessions in localStorage
+- **Spellbooks** — create named spellbooks, add any spells, track daily preparation
 - Advanced FTS5 syntax support (`AND`, `OR`, `NOT`, quoted phrases)
 - Sort by name, level, or school
 - Dark parchment theme
 - Links to Archives of Nethys for each spell
+
+## Spellbooks
+
+The Spellbook tab lets you build persistent, named spell collections stored in the database (survives browser cache clears).
+
+- **Create / rename / delete** spellbooks from the controls bar
+- **Add spells** from the All Spells tab using the `＋` button on any card; a picker modal lets you choose which book
+- **Track preparation**: click `✧` on a spell card to mark it prepared (`✦`); prepared spells get a gold left border
+- **Summary bar**: shows total spells, pages, material cost in gp, and a breakdown of prepared spells by level
+- **★ Prepared Only** toggle: filter to only today's prepared spells
+- **Reset Prep**: clears all prepared flags for the day
+- No class restrictions or slot enforcement — works for any caster type
 
 ## Requirements
 
@@ -71,7 +84,7 @@ Spellfinder/
 ├── start.sh            # One-click launcher for Mac/Linux
 ├── static/
 │   ├── style.css       # Dark parchment theme
-│   └── app.js          # Frontend: search, filters, rendering, pagination
+│   └── app.js          # Frontend: search, filters, spellbooks, rendering, pagination
 ├── templates/
 │   └── index.html      # Main page template
 └── categorization/

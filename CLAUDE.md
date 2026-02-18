@@ -1,6 +1,6 @@
 # Spellfinder — Pathfinder 1e Spell Search
 
-Local web app for searching all 2,905 Pathfinder 1e spells with full-text search and filters.
+Local web app for searching all 2,905 Pathfinder 1e spells with full-text search, filters, and persistent spellbooks.
 
 ## Stack
 
@@ -20,7 +20,7 @@ Spellfinder/
 ├── start.sh            # One-click launcher for Mac/Linux
 ├── static/
 │   ├── style.css       # Dark parchment theme
-│   └── app.js          # Frontend: search, filters, rendering, pagination
+│   └── app.js          # Frontend: search, filters, spellbooks, rendering, pagination
 ├── templates/
 │   └── index.html      # Main page template
 └── categorization/
@@ -72,9 +72,20 @@ python app.py                                          # starts Flask on http://
   - `spell_resistance` — multi-value grouped LIKE match: `Yes`, `No`
   - `components` — multi-value exclusion filter (AND): hides spells that have the selected component
   - `id` — multi-value: fetch specific spell IDs (used for favorites)
+  - `spellbook_id` — restrict results to spells in a spellbook; adds `prepared` field to each spell
+  - `prepared_only=1` — when `spellbook_id` set, further filters to only prepared spells
   - `sort` — `name`, `name_desc`, `level`, `level_desc`, `school`, `school_desc`
   - `page` / `per_page` — pagination (default 20; `per_page=all` returns up to 10,000)
 - `GET /api/filters` — returns distinct values for all filter dropdowns
+- `GET /api/spellbooks` — list all spellbooks with spell counts
+- `POST /api/spellbooks` — create a spellbook `{name}`
+- `DELETE /api/spellbooks/<id>` — delete (cascades to spellbook_spells)
+- `PATCH /api/spellbooks/<id>` — rename `{name}`
+- `POST /api/spellbooks/<id>/spells` — add spell `{spell_id}`
+- `DELETE /api/spellbooks/<id>/spells/<spell_id>` — remove spell
+- `PATCH /api/spellbooks/<id>/spells/<spell_id>` — set prepared `{prepared: 0|1}`
+- `POST /api/spellbooks/<id>/reset-prep` — set all prepared=0
+- `GET /api/spellbooks/<id>/summary` — `{total_spells, total_pages, total_cost, prepared_by_level}`
 
 ## Advanced query field:value syntax
 
@@ -108,12 +119,17 @@ Multiple values within a single filter are OR. Filters across different fields a
 
 ## Frontend features
 
+- **Tab bar** — "All Spells" and "Spellbook" tabs; tab + active spellbook ID persisted in URL
 - **MultiSelect dropdowns** — custom `MultiSelect` class: button + checkbox panel, closes on outside click, shows selected count
-- **URL state** — all filters/search/sort/page stored in query string via `history.replaceState`; restored on load
-- **Favorites** — star button on each card, persisted in `localStorage` as a set of spell IDs; favorites-only toggle in filter bar
+- **URL state** — all filters/search/sort/page/tab/spellbook stored in query string via `history.replaceState`; restored on load
+- **Favorites** — star button on each card, persisted in `localStorage` as a set of spell IDs; favorites-only toggle in filter bar (hidden in Spellbook tab)
+- **Spellbooks** — persistent named collections stored in SQLite; CRUD controls in Spellbook tab; no class restrictions
+- **Prepared tracking** — `✧`/`✦` toggle per spell card in Spellbook tab; cards get gold left border when prepared; Reset Prep clears all
+- **Summary bar** — shows total spells / pages / gp cost / prepared-by-level breakdown for the active spellbook
+- **Add-to-book picker** — `＋` button on All Spells cards opens a modal listing all spellbooks with checkmarks; supports creating a new book inline
 - **Per-page control** — 20 / 50 / 100 / All
 - **Spell cards** — collapsed view shows name, short description, school badge, level range, and category tags; click to expand full details + link to Archives of Nethys
-- **Expanded card extras** — formatted HTML description, material cost (gp), deity, domain, bloodline, patron, spirit, mystery rows when present
+- **Expanded card extras** — formatted HTML description, material cost (gp), deity, domain, bloodline, patron, spirit, mystery rows when present; Remove from Spellbook button in Spellbook tab
 
 Filter order: Category, Class, School, Level | Casting Time, Range, Area, Exclude Component, Duration, Saving Throw, Spell Resistance, Subschool, Descriptor
 
@@ -128,6 +144,8 @@ Filter order: Category, Class, School, Level | Casting Time, Range, Area, Exclud
 - **spell_classes** — normalized class/level mapping (spell_id, class_name, level), parsed from the `spell_level` CSV column; contains only actual classes (no spirit/mystery entries)
 - **spell_categories** — gameplay category tags (spell_id, category); many-to-many. Created empty by `init_db.py`, populated by `import_categories.py`.
 - **spells_fts** — FTS5 virtual table indexing name, description, short_description, school, subschool, descriptor, spell_level, casting_time, components, range, area, effect, targets, duration, saving_throw, spell_resistance, source
+- **spellbooks** — `(id, name)` — user-created named spell collections
+- **spellbook_spells** — `(id, spellbook_id, spell_id, prepared)` — spell membership + daily prep flag; UNIQUE (spellbook_id, spell_id); FK cascade on spellbook delete
 
 ## Spirit and mystery spells
 
@@ -159,5 +177,8 @@ Categorization scripts live in `categorization/`. `categories_raw.json` is commi
 - `description_formatted` contains HTML from the CSV source; rendered with `innerHTML` (trusted local data, not user input)
 - Two CSV column names differ from DB column names: `language-dependent` → `language_dependent`, `mind-affecting` → `mind_affecting`; handled by `CSV_COL_MAP` in `init_db.py`
 - Schema version detection in launchers: probes `SELECT spirit FROM spells LIMIT 1` to trigger auto-rebuild on outdated DBs
+- Spellbook tables are created by `_ensure_spellbook_tables()` at `app.py` startup — no DB rebuild needed for existing installs
+- `PRAGMA foreign_keys = ON` is set in both `_ensure_spellbook_tables()` and `get_db()` to enforce cascade deletes
+- Summary bar gp cost: `level × 10 gp` per spell (0th-level spells cost 0 gp); pages: 1 per 0th-level, else level value
 - 28 distinct classes, 11 schools, 154 sources in the dataset
 - The venv uses Python 3.14 on this machine

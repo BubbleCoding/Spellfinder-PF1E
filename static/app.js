@@ -160,9 +160,35 @@ const resultsCount  = document.getElementById("results-count");
 const resultsList   = document.getElementById("results-list");
 const paginationEl  = document.getElementById("pagination");
 
+// Tab / spellbook elements
+const tabButtons        = document.querySelectorAll(".tab");
+const spellbookControls = document.getElementById("spellbook-controls");
+const summaryBar        = document.getElementById("summary-bar");
+const sbSelect          = document.getElementById("spellbook-select");
+const newSbBtn          = document.getElementById("new-spellbook-btn");
+const renameSbBtn       = document.getElementById("rename-spellbook-btn");
+const deleteSbBtn       = document.getElementById("delete-spellbook-btn");
+const resetPrepBtn      = document.getElementById("reset-prep-btn");
+const showPreparedBtn   = document.getElementById("show-prepared-btn");
+
+// Picker modal
+const pickerModal     = document.getElementById("spellbook-picker");
+const pickerSpellName = document.getElementById("picker-spell-name");
+const pickerList      = document.getElementById("picker-list");
+const pickerNewBtn    = document.getElementById("picker-new-btn");
+const pickerCloseBtn  = document.getElementById("picker-close-btn");
+
 let currentPage = 1;
 let debounceTimer = null;
 let showFavoritesOnly = false;
+
+// Spellbook state
+let currentTab = "all";           // "all" | "spellbook"
+let currentSpellbookId = null;
+let spellbooks = [];              // [{id, name, spell_count}]
+let spellbookSpellIds = new Set();// spell_ids in active book
+let showPreparedOnly = false;
+let _pickerSpell = null;          // spell object currently in picker
 
 // Favorites — persisted as a Set of spell IDs in localStorage
 let favorites = new Set(JSON.parse(localStorage.getItem("spellfinder_favorites") || "[]"));
@@ -220,6 +246,206 @@ async function loadFilters() {
     }
 }
 
+// ── Spellbook management ──────────────────────────────────────────────────────
+async function loadSpellbooks() {
+    try {
+        const resp = await fetch("/api/spellbooks");
+        spellbooks = await resp.json();
+        _populateSbSelect();
+    } catch (err) {
+        console.error("Failed to load spellbooks:", err);
+    }
+}
+
+function _populateSbSelect() {
+    // Preserve current selection
+    const prevId = currentSpellbookId;
+    sbSelect.innerHTML = '<option value="">— select a spellbook —</option>';
+    spellbooks.forEach(sb => {
+        const opt = document.createElement("option");
+        opt.value = sb.id;
+        opt.textContent = `${sb.name} (${sb.spell_count})`;
+        sbSelect.appendChild(opt);
+    });
+    if (prevId && spellbooks.find(sb => sb.id === prevId)) {
+        sbSelect.value = String(prevId);
+    }
+}
+
+async function selectSpellbook(id) {
+    currentSpellbookId = id ? parseInt(id) : null;
+    spellbookSpellIds.clear();
+    if (currentSpellbookId) {
+        // Fetch all spell IDs in the book for "in book" badge on All tab
+        try {
+            const resp = await fetch(`/api/spells?spellbook_id=${currentSpellbookId}&per_page=all`);
+            const data = await resp.json();
+            data.spells.forEach(s => spellbookSpellIds.add(s.id));
+        } catch (err) {
+            console.error("Failed to load spellbook spell IDs:", err);
+        }
+        await updateSummaryBar();
+    } else {
+        summaryBar.classList.add("hidden");
+        summaryBar.innerHTML = "";
+    }
+    searchSpells(1);
+}
+
+async function updateSummaryBar() {
+    if (!currentSpellbookId) return;
+    try {
+        const resp = await fetch(`/api/spellbooks/${currentSpellbookId}/summary`);
+        const s = await resp.json();
+
+        const prepEntries = Object.entries(s.prepared_by_level).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+        const levelNames = ["0th","1st","2nd","3rd","4th","5th","6th","7th","8th","9th"];
+        let prepHtml = "";
+        if (prepEntries.length === 0) {
+            prepHtml = '<span class="summary-stat">None prepared today</span>';
+        } else {
+            prepHtml = prepEntries.map(([lvl, cnt]) =>
+                `<span class="prep-level-badge">${levelNames[parseInt(lvl)] || lvl+"th"} ×${cnt}</span>`
+            ).join(" ");
+        }
+
+        summaryBar.innerHTML = `
+            <span class="summary-stat"><strong>${s.total_spells}</strong> spells</span>
+            <span class="summary-stat"><strong>${s.total_pages}</strong> pages</span>
+            <span class="summary-stat"><strong>${s.total_cost.toLocaleString()}</strong> gp</span>
+            <span class="summary-stat">Prepared: <span class="prep-section">${prepHtml}</span></span>
+        `;
+        summaryBar.classList.remove("hidden");
+    } catch (err) {
+        console.error("Failed to update summary bar:", err);
+    }
+}
+
+async function refreshSpellbookSpellIds() {
+    if (!currentSpellbookId) { spellbookSpellIds.clear(); return; }
+    try {
+        const resp = await fetch(`/api/spells?spellbook_id=${currentSpellbookId}&per_page=all`);
+        const data = await resp.json();
+        spellbookSpellIds.clear();
+        data.spells.forEach(s => spellbookSpellIds.add(s.id));
+    } catch (err) {
+        console.error("Failed to refresh spellbook spell IDs:", err);
+    }
+}
+
+// ── Picker modal ──────────────────────────────────────────────────────────────
+function openSpellbookPicker(spell) {
+    _pickerSpell = spell;
+    pickerSpellName.textContent = spell.name;
+    _renderPickerList();
+    pickerModal.classList.add("open");
+}
+
+function _renderPickerList() {
+    pickerList.innerHTML = "";
+    if (spellbooks.length === 0) {
+        const li = document.createElement("li");
+        li.className = "picker-item";
+        li.textContent = "No spellbooks yet. Create one below.";
+        li.style.color = "var(--text-dim)";
+        li.style.cursor = "default";
+        pickerList.appendChild(li);
+        return;
+    }
+    spellbooks.forEach(sb => {
+        const inBook = spellbookSpellIds.has(_pickerSpell.id) && currentSpellbookId === sb.id
+            ? true
+            : false;
+        // We need per-book membership — use a lightweight check via the already-fetched set only for active book
+        // For other books we'd need an API call; instead track membership per-book via fetched data.
+        // For simplicity, show checkmark only for active book; clicking always toggles add/remove.
+        const li = document.createElement("li");
+        li.className = "picker-item";
+        li.dataset.sbId = sb.id;
+
+        const checkSpan = document.createElement("span");
+        checkSpan.className = "check";
+        checkSpan.textContent = inBook ? "✓" : "";
+
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = `${sb.name} (${sb.spell_count})`;
+
+        li.appendChild(checkSpan);
+        li.appendChild(nameSpan);
+
+        li.addEventListener("click", async () => {
+            if (inBook) {
+                await fetch(`/api/spellbooks/${sb.id}/spells/${_pickerSpell.id}`, { method: "DELETE" });
+                checkSpan.textContent = "";
+                // update count
+                const sbObj = spellbooks.find(x => x.id === sb.id);
+                if (sbObj) { sbObj.spell_count = Math.max(0, sbObj.spell_count - 1); nameSpan.textContent = `${sbObj.name} (${sbObj.spell_count})`; }
+                if (currentSpellbookId === sb.id) { await refreshSpellbookSpellIds(); await updateSummaryBar(); searchSpells(currentPage); }
+            } else {
+                await fetch(`/api/spellbooks/${sb.id}/spells`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({spell_id: _pickerSpell.id}) });
+                checkSpan.textContent = "✓";
+                const sbObj = spellbooks.find(x => x.id === sb.id);
+                if (sbObj) { sbObj.spell_count += 1; nameSpan.textContent = `${sbObj.name} (${sbObj.spell_count})`; }
+                if (currentSpellbookId === sb.id) { await refreshSpellbookSpellIds(); await updateSummaryBar(); }
+            }
+            _populateSbSelect();
+            // Toggle inBook for subsequent clicks on this li
+            li.dataset.inBook = inBook ? "" : "1";
+            checkSpan.textContent = inBook ? "" : "✓";
+        });
+
+        pickerList.appendChild(li);
+    });
+}
+
+function closePickerModal() {
+    pickerModal.classList.remove("open");
+    _pickerSpell = null;
+}
+
+// ── Prepared toggle ───────────────────────────────────────────────────────────
+async function togglePrepared(spellId, newVal) {
+    if (!currentSpellbookId) return;
+    try {
+        await fetch(`/api/spellbooks/${currentSpellbookId}/spells/${spellId}`, {
+            method: "PATCH",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({prepared: newVal ? 1 : 0}),
+        });
+        // Update DOM
+        const card = resultsList.querySelector(`.spell-card[data-spell-id="${spellId}"]`);
+        if (card) {
+            const btn = card.querySelector(".prepared-toggle");
+            if (newVal) {
+                card.classList.add("is-prepared");
+                if (btn) { btn.textContent = "✦"; btn.classList.add("prepared"); btn.title = "Mark as unprepared"; }
+            } else {
+                card.classList.remove("is-prepared");
+                if (btn) { btn.textContent = "✧"; btn.classList.remove("prepared"); btn.title = "Mark as prepared"; }
+            }
+        }
+        await updateSummaryBar();
+    } catch (err) {
+        console.error("Failed to toggle prepared:", err);
+    }
+}
+
+async function removeSpellFromBook(spellId) {
+    if (!currentSpellbookId) return;
+    try {
+        await fetch(`/api/spellbooks/${currentSpellbookId}/spells/${spellId}`, { method: "DELETE" });
+        await refreshSpellbookSpellIds();
+        // Update spellbooks count
+        const sb = spellbooks.find(x => x.id === currentSpellbookId);
+        if (sb) sb.spell_count = Math.max(0, sb.spell_count - 1);
+        _populateSbSelect();
+        await updateSummaryBar();
+        searchSpells(currentPage);
+    } catch (err) {
+        console.error("Failed to remove spell from book:", err);
+    }
+}
+
 // ── Search ────────────────────────────────────────────────────────────────────
 async function searchSpells(page = 1) {
     currentPage = page;
@@ -233,14 +459,21 @@ async function searchSpells(page = 1) {
         return;
     }
 
+    // Short-circuit for spellbook tab with no book selected
+    if (currentTab === "spellbook" && !currentSpellbookId) {
+        resultsCount.textContent = "";
+        resultsList.innerHTML = '<div class="no-results">Select or create a spellbook above.</div>';
+        paginationEl.innerHTML = "";
+        updateURL(page);
+        return;
+    }
+
     const q       = searchInput.value.trim();
     const sortVal = sortSelect.value;
     const ppVal   = perPageSelect.value;
 
-    // Build URL state (no API-internal params)
     updateURL(page);
 
-    // Build API params
     const params = new URLSearchParams();
     if (q) params.set("q", q);
     if (sortVal) params.set("sort", sortVal);
@@ -249,6 +482,10 @@ async function searchSpells(page = 1) {
     });
     if (showFavoritesOnly) {
         [...favorites].forEach(id => params.append("id", String(id)));
+    }
+    if (currentTab === "spellbook" && currentSpellbookId) {
+        params.set("spellbook_id", String(currentSpellbookId));
+        if (showPreparedOnly) params.set("prepared_only", "1");
     }
     params.set("page", String(page));
     params.set("per_page", ppVal);
@@ -277,6 +514,8 @@ function updateURL(page) {
     });
     if (showFavoritesOnly) state.set("favorites", "1");
     if (page > 1) state.set("page", String(page));
+    if (currentTab === "spellbook") state.set("tab", "spellbook");
+    if (currentSpellbookId) state.set("spellbook", String(currentSpellbookId));
     history.replaceState(null, "", window.location.pathname + (state.toString() ? "?" + state.toString() : ""));
 }
 
@@ -287,7 +526,10 @@ function renderResults(data) {
 
     if (total === 0) {
         resultsCount.textContent = "No spells found";
-        resultsList.innerHTML = '<div class="no-results">No spells match your search. Try different keywords or filters.</div>';
+        const msg = currentTab === "spellbook" && !showPreparedOnly
+            ? "No spells in this spellbook yet. Search all spells and use ＋ to add them."
+            : "No spells match your search. Try different keywords or filters.";
+        resultsList.innerHTML = `<div class="no-results">${msg}</div>`;
         paginationEl.innerHTML = "";
         return;
     }
@@ -300,9 +542,13 @@ function renderResults(data) {
     spells.forEach(spell => {
         const card = document.createElement("div");
         card.className = "spell-card";
+        card.dataset.spellId = spell.id;
+        if (currentTab === "spellbook" && spell.prepared) card.classList.add("is-prepared");
         card.innerHTML = buildSpellCard(spell);
         card.addEventListener("click", (e) => {
-            if (e.target.closest("a") || e.target.closest(".favorite-btn")) return;
+            if (e.target.closest("a") || e.target.closest(".favorite-btn") ||
+                e.target.closest(".add-to-book-btn") || e.target.closest(".prepared-toggle") ||
+                e.target.closest(".remove-from-book-btn")) return;
             card.classList.toggle("expanded");
         });
         resultsList.appendChild(card);
@@ -328,9 +574,26 @@ function buildSpellCard(spell) {
     if (spell.subschool)  schoolFull += ` (${spell.subschool})`;
     if (spell.descriptor) schoolFull += ` [${spell.descriptor}]`;
 
-    const isFav     = favorites.has(spell.id);
-    const starTitle = isFav ? "Remove from favorites" : "Add to favorites";
-    const starHtml  = `<button class="favorite-btn${isFav ? " favorited" : ""}" data-spell-id="${spell.id}" title="${starTitle}" aria-label="${starTitle}">${isFav ? "★" : "☆"}</button>`;
+    // Header buttons — differ by tab
+    let actionBtns = "";
+    if (currentTab === "spellbook") {
+        // Prepared toggle replaces the star
+        const isPrepared = spell.prepared === 1;
+        const prepTitle  = isPrepared ? "Mark as unprepared" : "Mark as prepared";
+        actionBtns = `<button class="prepared-toggle${isPrepared ? " prepared" : ""}" data-spell-id="${spell.id}" title="${prepTitle}" aria-label="${prepTitle}">${isPrepared ? "✦" : "✧"}</button>`;
+    } else {
+        // Star (favorites)
+        const isFav     = favorites.has(spell.id);
+        const starTitle = isFav ? "Remove from favorites" : "Add to favorites";
+        actionBtns = `<button class="favorite-btn${isFav ? " favorited" : ""}" data-spell-id="${spell.id}" title="${starTitle}" aria-label="${starTitle}">${isFav ? "★" : "☆"}</button>`;
+
+        // Book button (only if a spellbook is active)
+        if (currentSpellbookId) {
+            const inBook = spellbookSpellIds.has(spell.id);
+            const bookTitle = inBook ? "In spellbook" : "Add to spellbook";
+            actionBtns += `<button class="add-to-book-btn${inBook ? " in-book" : ""}" data-spell-id="${spell.id}" title="${bookTitle}" aria-label="${bookTitle}">${inBook ? "📖" : "＋"}</button>`;
+        }
+    }
 
     const compValue = esc(spell.components || compStr) + (spell.material_costs ? ` <span class="material-cost">(${spell.material_costs} gp)</span>` : "");
     let detailsHtml = `
@@ -359,6 +622,11 @@ function buildSpellCard(spell) {
         detailsHtml += `<div class="detail-row"><span class="detail-label">Classes</span><div class="class-list">${tags}</div></div>`;
     }
 
+    // Remove from book button — only in spellbook tab
+    if (currentTab === "spellbook") {
+        detailsHtml += `<button class="remove-from-book-btn" data-spell-id="${spell.id}">Remove from Spellbook</button>`;
+    }
+
     let mythicHtml = "";
     if (spell.mythic && spell.mythic_text) {
         mythicHtml = `<div class="mythic-tag">Mythic</div><div class="spell-description">${esc(spell.mythic_text)}</div>`;
@@ -373,7 +641,7 @@ function buildSpellCard(spell) {
 
     return `
         <div class="spell-header">
-            ${starHtml}
+            ${actionBtns}
             <span class="spell-name">${esc(spell.name)}</span>
             <div class="spell-meta">
                 <div class="spell-meta-top">
@@ -467,6 +735,25 @@ function esc(s) {
     return div.innerHTML;
 }
 
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(tab) {
+    currentTab = tab;
+    tabButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tab));
+
+    if (tab === "spellbook") {
+        spellbookControls.classList.remove("hidden");
+        if (currentSpellbookId) summaryBar.classList.remove("hidden");
+        favoritesBtn.classList.add("hidden");
+    } else {
+        spellbookControls.classList.add("hidden");
+        summaryBar.classList.add("hidden");
+        showPreparedOnly = false;
+        showPreparedBtn.classList.remove("active");
+        favoritesBtn.classList.remove("hidden");
+    }
+    searchSpells(1);
+}
+
 // ── Event listeners ───────────────────────────────────────────────────────────
 searchInput.addEventListener("input", () => {
     clearTimeout(debounceTimer);
@@ -496,31 +783,201 @@ favoritesBtn.addEventListener("click", () => {
     searchSpells(1);
 });
 
-// Star click — event delegation on the results list
-resultsList.addEventListener("click", (e) => {
-    const starBtn = e.target.closest(".favorite-btn");
-    if (!starBtn) return;
-    e.stopPropagation();
+// Tab buttons
+tabButtons.forEach(btn => {
+    btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+});
 
-    const id = parseInt(starBtn.dataset.spellId);
-    if (favorites.has(id)) {
-        favorites.delete(id);
-        starBtn.classList.remove("favorited");
-        starBtn.textContent = "☆";
-        starBtn.title = starBtn.ariaLabel = "Add to favorites";
-    } else {
-        favorites.add(id);
-        starBtn.classList.add("favorited");
-        starBtn.textContent = "★";
-        starBtn.title = starBtn.ariaLabel = "Remove from favorites";
+// Spellbook select dropdown
+sbSelect.addEventListener("change", () => selectSpellbook(sbSelect.value));
+
+// New spellbook
+newSbBtn.addEventListener("click", async () => {
+    const name = prompt("Spellbook name:");
+    if (!name || !name.trim()) return;
+    try {
+        const resp = await fetch("/api/spellbooks", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({name: name.trim()}),
+        });
+        const sb = await resp.json();
+        spellbooks.push({id: sb.id, name: sb.name, spell_count: 0});
+        spellbooks.sort((a, b) => a.name.localeCompare(b.name));
+        _populateSbSelect();
+        sbSelect.value = String(sb.id);
+        await selectSpellbook(sb.id);
+    } catch (err) {
+        console.error("Failed to create spellbook:", err);
     }
-    saveFavorites();
-    // If in favorites-only view, refresh so the card disappears on unstar
-    if (showFavoritesOnly) searchSpells(currentPage);
+});
+
+// Rename spellbook
+renameSbBtn.addEventListener("click", async () => {
+    if (!currentSpellbookId) return;
+    const sb = spellbooks.find(x => x.id === currentSpellbookId);
+    const name = prompt("New name:", sb ? sb.name : "");
+    if (!name || !name.trim()) return;
+    try {
+        await fetch(`/api/spellbooks/${currentSpellbookId}`, {
+            method: "PATCH",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({name: name.trim()}),
+        });
+        if (sb) sb.name = name.trim();
+        spellbooks.sort((a, b) => a.name.localeCompare(b.name));
+        _populateSbSelect();
+    } catch (err) {
+        console.error("Failed to rename spellbook:", err);
+    }
+});
+
+// Delete spellbook
+deleteSbBtn.addEventListener("click", async () => {
+    if (!currentSpellbookId) return;
+    const sb = spellbooks.find(x => x.id === currentSpellbookId);
+    if (!confirm(`Delete spellbook "${sb ? sb.name : ""}"? This cannot be undone.`)) return;
+    try {
+        await fetch(`/api/spellbooks/${currentSpellbookId}`, { method: "DELETE" });
+        spellbooks = spellbooks.filter(x => x.id !== currentSpellbookId);
+        currentSpellbookId = null;
+        spellbookSpellIds.clear();
+        _populateSbSelect();
+        summaryBar.classList.add("hidden");
+        summaryBar.innerHTML = "";
+        searchSpells(1);
+    } catch (err) {
+        console.error("Failed to delete spellbook:", err);
+    }
+});
+
+// Reset prep
+resetPrepBtn.addEventListener("click", async () => {
+    if (!currentSpellbookId) return;
+    if (!confirm("Reset all prepared spells for today?")) return;
+    try {
+        await fetch(`/api/spellbooks/${currentSpellbookId}/reset-prep`, { method: "POST" });
+        showPreparedOnly = false;
+        showPreparedBtn.classList.remove("active");
+        await updateSummaryBar();
+        searchSpells(currentPage);
+    } catch (err) {
+        console.error("Failed to reset prep:", err);
+    }
+});
+
+// Show prepared only toggle
+showPreparedBtn.addEventListener("click", () => {
+    showPreparedOnly = !showPreparedOnly;
+    showPreparedBtn.classList.toggle("active", showPreparedOnly);
+    searchSpells(1);
+});
+
+// Event delegation on results list
+resultsList.addEventListener("click", (e) => {
+    // Favorite star
+    const starBtn = e.target.closest(".favorite-btn");
+    if (starBtn) {
+        e.stopPropagation();
+        const id = parseInt(starBtn.dataset.spellId);
+        if (favorites.has(id)) {
+            favorites.delete(id);
+            starBtn.classList.remove("favorited");
+            starBtn.textContent = "☆";
+            starBtn.title = starBtn.ariaLabel = "Add to favorites";
+        } else {
+            favorites.add(id);
+            starBtn.classList.add("favorited");
+            starBtn.textContent = "★";
+            starBtn.title = starBtn.ariaLabel = "Remove from favorites";
+        }
+        saveFavorites();
+        if (showFavoritesOnly) searchSpells(currentPage);
+        return;
+    }
+
+    // Add-to-book button
+    const bookBtn = e.target.closest(".add-to-book-btn");
+    if (bookBtn) {
+        e.stopPropagation();
+        const spellId = parseInt(bookBtn.dataset.spellId);
+        // Find the spell data from the card's rendered content — open picker with minimal info
+        const card = bookBtn.closest(".spell-card");
+        const name = card ? (card.querySelector(".spell-name")?.textContent || "") : "";
+        openSpellbookPicker({id: spellId, name});
+        return;
+    }
+
+    // Prepared toggle
+    const prepBtn = e.target.closest(".prepared-toggle");
+    if (prepBtn) {
+        e.stopPropagation();
+        const spellId = parseInt(prepBtn.dataset.spellId);
+        const currentlyPrepared = prepBtn.classList.contains("prepared");
+        togglePrepared(spellId, !currentlyPrepared);
+        return;
+    }
+
+    // Remove from book
+    const removeBtn = e.target.closest(".remove-from-book-btn");
+    if (removeBtn) {
+        e.stopPropagation();
+        const spellId = parseInt(removeBtn.dataset.spellId);
+        const card = removeBtn.closest(".spell-card");
+        const name = card ? (card.querySelector(".spell-name")?.textContent || "") : "this spell";
+        if (confirm(`Remove "${name}" from spellbook?`)) {
+            removeSpellFromBook(spellId);
+        }
+        return;
+    }
+});
+
+// Picker modal events
+pickerCloseBtn.addEventListener("click", closePickerModal);
+pickerModal.addEventListener("click", (e) => {
+    if (e.target === pickerModal) closePickerModal();
+});
+pickerNewBtn.addEventListener("click", async () => {
+    const name = prompt("New spellbook name:");
+    if (!name || !name.trim()) return;
+    try {
+        const resp = await fetch("/api/spellbooks", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({name: name.trim()}),
+        });
+        const sb = await resp.json();
+        spellbooks.push({id: sb.id, name: sb.name, spell_count: 0});
+        spellbooks.sort((a, b) => a.name.localeCompare(b.name));
+        _populateSbSelect();
+        // Auto-add the current spell to the new book
+        if (_pickerSpell) {
+            await fetch(`/api/spellbooks/${sb.id}/spells`, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({spell_id: _pickerSpell.id}),
+            });
+            sb.spell_count = 1;
+            spellbooks.find(x => x.id === sb.id).spell_count = 1;
+            _populateSbSelect();
+        }
+        closePickerModal();
+        // Select this new spellbook
+        if (currentTab === "spellbook") {
+            sbSelect.value = String(sb.id);
+            await selectSpellbook(sb.id);
+        } else if (!currentSpellbookId) {
+            currentSpellbookId = sb.id;
+            sbSelect.value = String(sb.id);
+            await refreshSpellbookSpellIds();
+        }
+    } catch (err) {
+        console.error("Failed to create spellbook from picker:", err);
+    }
 });
 
 // ── URL state restore ─────────────────────────────────────────────────────────
-function restoreFromURL() {
+async function restoreFromURL() {
     const p = new URLSearchParams(window.location.search);
 
     const q = p.get("q");
@@ -542,13 +999,29 @@ function restoreFromURL() {
         favoritesBtn.classList.add("active");
     }
 
+    const tab = p.get("tab");
+    if (tab === "spellbook") {
+        currentTab = "spellbook";
+        tabButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.tab === "spellbook"));
+        spellbookControls.classList.remove("hidden");
+        favoritesBtn.classList.add("hidden");
+
+        const sbId = parseInt(p.get("spellbook") || "0");
+        if (sbId && spellbooks.find(sb => sb.id === sbId)) {
+            sbSelect.value = String(sbId);
+            await selectSpellbook(sbId);
+            return; // selectSpellbook calls searchSpells
+        }
+    }
+
     searchSpells(parseInt(p.get("page")) || 1);
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
     await loadFilters();
-    restoreFromURL();
+    await loadSpellbooks();
+    await restoreFromURL();
 }
 
 init();

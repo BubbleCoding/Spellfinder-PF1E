@@ -13,6 +13,24 @@
     </header>
 
     <main>
+        <div class="tab-bar">
+            <button class="tab active" data-tab="all">All Spells</button>
+            <button class="tab" data-tab="spellbook">Spellbook</button>
+        </div>
+
+        <div id="spellbook-controls" class="hidden">
+            <select id="spellbook-select">
+                <option value="">— select a spellbook —</option>
+            </select>
+            <button id="new-spellbook-btn">+ New</button>
+            <button id="rename-spellbook-btn">Rename</button>
+            <button id="delete-spellbook-btn">Delete</button>
+            <button id="reset-prep-btn">Reset Prep</button>
+            <button id="show-prepared-btn">★ Prepared Only</button>
+        </div>
+
+        <div id="summary-bar" class="hidden"></div>
+
         <div class="search-bar">
             <input type="text" id="search-input" placeholder="Search spells... (e.g. fireball, class:wizard AND class:paladin, domain:fire, deity:asmodeus)" autofocus>
         </div>
@@ -106,6 +124,18 @@
 
         <div class="pagination" id="pagination"></div>
     </main>
+
+    <div id="spellbook-picker" class="modal-overlay">
+        <div class="modal-dialog">
+            <h3 class="modal-title">Add to Spellbook</h3>
+            <p id="picker-spell-name" class="modal-subtitle"></p>
+            <ul id="picker-list"></ul>
+            <div class="modal-footer">
+                <button id="picker-new-btn">+ New Spellbook</button>
+                <button id="picker-close-btn">Close</button>
+            </div>
+        </div>
+    </div>
 
     <script src="/static/app.js"></script>
 </body>
