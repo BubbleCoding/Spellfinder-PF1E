@@ -347,7 +347,7 @@ main {
     display: flex;
     align-items: center;
     gap: 0.7rem;
-    padding: 0.7rem 1rem;
+    padding: 0.45rem 1rem;
 }
 
 .spell-name {
@@ -372,8 +372,39 @@ main {
     white-space: nowrap;
 }
 
+.spell-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.3rem;
+    flex-shrink: 0;
+}
+
+.spell-meta-top {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+}
+
+.spell-categories {
+    display: flex;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.spell-category-tag {
+    font-size: 0.72rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 3px;
+    background: rgba(200,164,110,0.1);
+    border: 1px solid var(--accent-dim);
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+
 .spell-short-desc {
-    padding: 0 1rem 0.6rem;
+    padding: 0 1rem 0.45rem;
     font-size: 0.88rem;
     color: var(--text-dim);
     line-height: 1.4;
@@ -552,6 +583,7 @@ main {
     .filters select { min-width: 100%; }
     #clear-filters { margin-left: 0; }
     .spell-header { flex-wrap: wrap; gap: 0.4rem; }
+    .spell-meta { align-items: flex-start; }
     .spell-details .detail-row { flex-direction: column; gap: 0.1rem; }
     .spell-details .detail-label { min-width: auto; }
 }

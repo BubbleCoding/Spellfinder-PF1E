@@ -290,6 +290,21 @@ def api_spells():
         spell["classes"] = [
             {"class_name": r["class_name"], "level": r["level"]} for r in cls_rows
         ]
+        cat_rows = db.execute(
+            "SELECT category FROM spell_categories WHERE spell_id = ? ORDER BY category",
+            (spell["id"],),
+        ).fetchall()
+        categories = [r["category"] for r in cat_rows]
+        if not categories:
+            school = (spell["school"] or "").lower()
+            subschool = (spell["subschool"] or "").lower()
+            if school == "divination":
+                categories = ["Divination"]
+            elif subschool in {"healing", "summoning", "calling", "polymorph", "scrying"}:
+                categories = [subschool.capitalize()]
+            else:
+                categories = ["Other"]
+        spell["categories"] = categories
         spells.append(spell)
 
     return jsonify(

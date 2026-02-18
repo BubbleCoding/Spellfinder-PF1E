@@ -357,12 +357,24 @@ function buildSpellCard(spell) {
         mythicHtml = `<div class="mythic-tag">Mythic</div><div class="spell-description">${esc(spell.mythic_text)}</div>`;
     }
 
+    const categoryTags = (spell.categories || [])
+        .map(c => `<span class="spell-category-tag">${esc(c)}</span>`)
+        .join("");
+    const categoriesHtml = categoryTags
+        ? `<div class="spell-categories">${categoryTags}</div>`
+        : "";
+
     return `
         <div class="spell-header">
             ${starHtml}
             <span class="spell-name">${esc(spell.name)}</span>
-            <span class="spell-school ${schoolClass}">${esc(capitalize(spell.school || ""))}</span>
-            <span class="spell-level-badge">${esc(levelStr)}</span>
+            <div class="spell-meta">
+                <div class="spell-meta-top">
+                    <span class="spell-school ${schoolClass}">${esc(capitalize(spell.school || ""))}</span>
+                    <span class="spell-level-badge">${esc(levelStr)}</span>
+                </div>
+                ${categoriesHtml}
+            </div>
         </div>
         <div class="spell-short-desc">${esc(shortDesc)}</div>
         <div class="spell-details">
