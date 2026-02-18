@@ -70,6 +70,15 @@ CREATE TABLE IF NOT EXISTS spell_classes (
 );
 """
 
+CREATE_SPELL_CATEGORIES = """
+CREATE TABLE IF NOT EXISTS spell_categories (
+    spell_id INTEGER NOT NULL,
+    category TEXT NOT NULL,
+    PRIMARY KEY (spell_id, category),
+    FOREIGN KEY (spell_id) REFERENCES spells(id)
+);
+"""
+
 CREATE_FTS = """
 CREATE VIRTUAL TABLE IF NOT EXISTS spells_fts USING fts5(
     name,
@@ -150,6 +159,7 @@ def build_db(csv_text: str):
 
     cur.execute(CREATE_SPELLS)
     cur.execute(CREATE_SPELL_CLASSES)
+    cur.execute(CREATE_SPELL_CATEGORIES)
     cur.execute(CREATE_FTS)
     cur.execute("CREATE INDEX IF NOT EXISTS idx_sc_class ON spell_classes(class_name);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_sc_level ON spell_classes(level);")
