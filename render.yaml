@@ -3,6 +3,6 @@ services:
     name: spellfinder-pf1e
     runtime: python
     pythonVersion: "3.12"
-    buildCommand: "pip install -r requirements.txt && python init_db.py && python categorization/import_categories.py"
+    buildCommand: "pip install -r requirements.txt"
     startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT"
     plan: free
