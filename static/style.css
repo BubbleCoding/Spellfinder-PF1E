@@ -1043,6 +1043,16 @@ main {
     border-bottom: none;
 }
 
+.info-about a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.info-about a:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
     header h1 { font-size: 1.6rem; }
