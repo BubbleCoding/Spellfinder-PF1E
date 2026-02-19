@@ -123,10 +123,15 @@ Multiple values within a single filter are OR. Filters across different fields a
 - **MultiSelect dropdowns** — custom `MultiSelect` class: button + checkbox panel, closes on outside click, shows selected count
 - **URL state** — all filters/search/sort/page/tab/spellbook stored in query string via `history.replaceState`; restored on load
 - **Favorites** — star button on each card, persisted in `localStorage` as a set of spell IDs; favorites-only toggle in filter bar (hidden in Spellbook tab)
-- **Spellbooks** — persistent named collections stored in SQLite; CRUD controls in Spellbook tab; no class restrictions
+- **Spellbooks** — persistent named collections stored in **localStorage**; CRUD controls in Spellbook tab; no class restrictions
 - **Prepared tracking** — `✧`/`✦` toggle per spell card in Spellbook tab; cards get gold left border when prepared; Reset Prep clears all
 - **Summary bar** — shows total spells / pages / gp cost / prepared-by-level breakdown for the active spellbook
 - **Add-to-book picker** — `＋` button on All Spells cards opens a modal listing all spellbooks with checkmarks; supports creating a new book inline
+- **Export Key** — JSON snapshot of a spellbook (name + spells + prepared state) shown in themed textarea modal for copy/save
+- **Export List** — plain-text spell names (one per line) shown in the same modal; reuses `#key-modal` with dynamic title/subtitle
+- **Import Key** — paste a JSON key in a themed textarea modal; handles name collisions with `promptConfirm` + `promptName`
+- **Import List** — paste spell names to bulk-add to the active spellbook; reports unrecognised names
+- **Styled modal helpers** — `promptConfirm(title, msg)` and `promptKeyInput()` return Promises, replacing native `confirm()`/`prompt()`; use the `.modal-overlay` / `.open` pattern
 - **Per-page control** — 20 / 50 / 100 / All
 - **Spell cards** — collapsed view shows name, short description, school badge, level range, and category tags; click to expand full details + link to Archives of Nethys
 - **Expanded card extras** — formatted HTML description, material cost (gp), deity, domain, bloodline, patron, spirit, mystery rows when present; Remove from Spellbook button in Spellbook tab
