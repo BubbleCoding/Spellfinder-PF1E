@@ -1,6 +1,7 @@
 # Spellfinder — Pathfinder 1e Spell Search
 
-A local web app for searching all 2,905 Pathfinder 1e spells with full-text search, filters, and persistent spellbooks.
+A web app for searching all 2,905 Pathfinder 1e spells with full-text search, filters, and persistent spellbooks.
+The web app is live on: https://spellfinder-pf1e.onrender.com
 
 ## Features
 
@@ -13,7 +14,10 @@ A local web app for searching all 2,905 Pathfinder 1e spells with full-text sear
 - Shaman spirit and oracle mystery spell lists (from `spirit and mystery.xlsx`)
 - Advanced field search syntax: `class:wizard AND class:paladin`, `domain:fire`, `spirit:flame`, `mystery:ancestor`
 - Favorites — star any spell; persisted across sessions in localStorage
-- **Spellbooks** — create named spellbooks, add any spells, track daily preparation
+- **Spellbooks** — create named spellbooks, add any spells, track daily preparation; stored in localStorage
+- Export Key / Import Key — JSON snapshots for backup and sharing
+- Export List — plain-text list of spell names for sharing or printing
+- Import List — paste spell names (one per line) to bulk-add to a spellbook
 - Advanced FTS5 syntax support (`AND`, `OR`, `NOT`, quoted phrases)
 - Sort by name, level, or school
 - Dark parchment theme
@@ -21,7 +25,7 @@ A local web app for searching all 2,905 Pathfinder 1e spells with full-text sear
 
 ## Spellbooks
 
-The Spellbook tab lets you build persistent, named spell collections stored in the database (survives browser cache clears).
+The Spellbook tab lets you build persistent, named spell collections stored in your browser's **localStorage**.
 
 - **Create / rename / delete** spellbooks from the controls bar
 - **Add spells** from the All Spells tab using the `＋` button on any card; a picker modal lets you choose which book
@@ -29,7 +33,15 @@ The Spellbook tab lets you build persistent, named spell collections stored in t
 - **Summary bar**: shows total spells, pages, material cost in gp, and a breakdown of prepared spells by level
 - **★ Prepared Only** toggle: filter to only today's prepared spells
 - **Reset Prep**: clears all prepared flags for the day
+- **Export Key** — copy a JSON snapshot of your spellbook to save or share
+- **Export List** — copy a plain-text list of spell names, one per line (useful for sharing or printing)
+- **Import Key** — paste a previously exported key to restore or import a spellbook; prompts to rename if a name collision occurs
+- **Import List** — paste spell names (one per line) to bulk-add matching spells to the current spellbook; unrecognised names are reported
 - No class restrictions or slot enforcement — works for any caster type
+
+## Local run
+
+If you wish to run the app locally or modify it to your own wishes you can follow the steps below.
 
 ## Requirements
 
