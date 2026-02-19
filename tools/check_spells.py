@@ -23,7 +23,7 @@ import urllib.parse
 import urllib.request
 from html.parser import HTMLParser
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pfinder.db")
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "pfinder.db")
 AON_URL = "https://aonprd.com/Spells.aspx?Class=All"
 
 

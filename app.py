@@ -611,6 +611,6 @@ def build_fts_query(user_query: str) -> str:
 if __name__ == "__main__":
     if not os.path.exists(DB_PATH):
         print(f"Database not found at {DB_PATH}")
-        print("Run 'python init_db.py' first to create the database.")
+        print("Run 'python tools/init_db.py' first to create the database.")
         raise SystemExit(1)
     app.run(debug=True, port=5000)

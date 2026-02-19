@@ -11,7 +11,7 @@ CSV_URL = (
     "https://raw.githubusercontent.com/PaigeM89/PathfinderSpellDb"
     "/main/src/PathfinderSpellDb/spells.csv"
 )
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pfinder.db")
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "pfinder.db")
 
 # All columns stored in the spells table (order must match CREATE_SPELLS and INSERT)
 SPELL_COLS = [
