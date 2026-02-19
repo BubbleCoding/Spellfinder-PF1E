@@ -1,7 +1,8 @@
 # Spellfinder — Pathfinder 1e Spell Search
 
-A web app for searching all 2,905 Pathfinder 1e spells with full-text search, filters, and persistent spellbooks.
-The web app is live on: https://spellfinder-pf1e.onrender.com
+A web app for searching all 3,039 Pathfinder 1e spells with full-text search, filters, and persistent spellbooks.
+
+The app is live at: **https://spellfinder-pf1e.onrender.com**
 
 ## Features
 
@@ -39,9 +40,9 @@ The Spellbook tab lets you build persistent, named spell collections stored in y
 - **Import List** — paste spell names (one per line) to bulk-add matching spells to the current spellbook; unrecognised names are reported
 - No class restrictions or slot enforcement — works for any caster type
 
-## Local run
+## Local Run
 
-If you wish to run the app locally or modify it to your own wishes you can follow the steps below.
+If you want to run the app locally or adapt it to your own needs, follow the steps below.
 
 ## Requirements
 
@@ -89,16 +90,18 @@ Then open `http://localhost:5000`.
 
 ```
 Spellfinder/
-├── app.py              # Flask app: API routes + serves frontend
-├── init_db.py          # Downloads CSV, parses it, loads into SQLite with FTS5
-├── requirements.txt    # flask
-├── start.bat           # One-click launcher for Windows
-├── start.sh            # One-click launcher for Mac/Linux
+├── app.py                    # Flask app: API routes + serves frontend
+├── init_db.py                # Downloads CSV, parses it, loads into SQLite with FTS5
+├── scrape_missing_spells.py  # Scrapes spells from AoN that are absent from the CSV
+├── check_spells.py           # Cross-references DB against AoN to find discrepancies
+├── requirements.txt          # flask
+├── start.bat                 # One-click launcher for Windows
+├── start.sh                  # One-click launcher for Mac/Linux
 ├── static/
-│   ├── style.css       # Dark parchment theme
-│   └── app.js          # Frontend: search, filters, spellbooks, rendering, pagination
+│   ├── style.css             # Dark parchment theme
+│   └── app.js                # Frontend: search, filters, spellbooks, rendering, pagination
 ├── templates/
-│   └── index.html      # Main page template
+│   └── index.html            # Main page template
 └── categorization/
     ├── categorize_spells.py        # Calls OpenAI API to assign gameplay categories
     ├── import_categories.py        # Populates spell_categories table from categories_raw.json
@@ -111,7 +114,7 @@ Spellfinder/
 
 ## Data Source
 
-Spell data from [PaigeM89/PathfinderSpellDb](https://github.com/PaigeM89/PathfinderSpellDb) — 2,905 spells across 28 classes, 11 schools, and 154 sources. All columns from the source CSV are imported (except `full_text`).
+Base spell data from [PaigeM89/PathfinderSpellDb](https://github.com/PaigeM89/PathfinderSpellDb). The database has been cross-referenced against [Archives of Nethys](https://aonprd.com/Spells.aspx?Class=All) and extended with spells missing from the CSV source, bringing the total to 3,039 spells across 28 classes, 11 schools, and 154 sources.
 
 Shaman spirit and oracle mystery spell lists are not in the CSV; they are imported separately from a user-provided `spirit and mystery.xlsx` file.
 

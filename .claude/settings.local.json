@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(.venv/Scripts/python.exe:*)",
-      "Bash(\"C:\\\\Users\\\\rover vos\\\\Documents\\\\Spellfinder-PF1E\\\\.venv\\\\Scripts\\\\python.exe\" -c:*)"
+      "Bash(\"C:\\\\Users\\\\rover vos\\\\Documents\\\\Spellfinder-PF1E\\\\.venv\\\\Scripts\\\\python.exe\" -c:*)",
+      "WebFetch(domain:aonprd.com)",
+      "Bash(.venv/Scripts/python:*)"
     ]
   }
 }

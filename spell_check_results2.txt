@@ -1,0 +1,213 @@
+================================================================
+Spells on AoN but NOT in database (170):
+================================================================
+  + Abjuring Step
+  + Ablative Sphere (Garundi)
+  + Absorbing Barrier
+  + Admonishing Ray
+  + Antitoxin Touch
+  + Apparent Master
+  + Arid Refuge
+  + Armor of Darkness
+  + Ashen Path
+  + Blacklight
+  + Blast of Wind
+  + Bloodsworn Retribution
+  + Bolt of Glory
+  + Bolts of Bedevilment
+  + Brightest Night
+  + Burning Arc (Keleshite)
+  + Calamitous Flailing
+  + Carrying Wind
+  + Carve Passage
+  + Clay Skin
+  + Companion Transportation
+  + Crown of Glory
+  + Cultural Adaptation (Taldan)
+  + Curse of Dragonflies
+  + Deadeye's Arrow
+  + Debilitating Speech
+  + Defensive Grace
+  + Delectable Flesh
+  + Demon Dream
+  + Diamond Spray
+  + Drain Construct
+  + Drunkard's Breath
+  + Dwarven Veil
+  + Enhanced Diplomacy
+  + Expel Blood
+  + Fair is Foul
+  + False Age
+  + Fastidiousness
+  + Fey Blight
+  + Fey Boon
+  + Flame Steed
+  + Flash Flood
+  + Flesh to Ooze
+  + Fleshwarping Swarm (Drow)
+  + Fool's Gold (AA)
+  + Fool's Gold (VC)
+  + Forced Mutation
+  + Fortune's Path
+  + Genesis
+  + Glimpse the Hidden
+  + Grasping Vine
+  + Hag's Seasoning
+  + Hallucinatory Decor
+  + Hardening
+  + Hide from Undead, Greater
+  + Hurricane Blast
+  + Identifier's Eye
+  + Impede Speech
+  + Influence Wild Magic
+  + Infuse Effigy
+  + Instant Clot
+  + Invigorating Repose
+  + Knell of the Depths
+  + Leshy Swarm
+  + Lightning Conductor
+  + Litany of Admonition
+  + Litany of Dependability
+  + Litany of Duty
+  + Litany of Order
+  + Malediction (Hero Points)
+  + Mark of Buoyancy
+  + Mark of Spite
+  + Mighty Strength
+  + Mnemonic Siphon
+  + Pattern Recognition
+  + Peacemaker's Parley
+  + Pernicious Pranksters
+  + Pesh Addiction
+  + Pesh Addiction, Lesser
+  + Phantasmal Asphixiation
+  + Phase Step
+  + Pinecone Bomb
+  + Planned Assault
+  + Poisonous Cloud
+  + Prophetic Lore
+  + Raiment of Command
+  + Realm Retribution
+  + Redcap's Touch
+  + Resize Item
+  + Reveal True Shape
+  + Revealing Light
+  + Rising Water
+  + Rival's Weald
+  + Rope Tornado
+  + Sand Whirlwind
+  + Sand Whirlwind, Greater
+  + Second Wind
+  + Seed Spies
+  + Seismic Fissure
+  + Shared Training
+  + Shield Companion (AA)
+  + Shield Companion (ACG)
+  + Shield Speech
+  + Shield Speech, Greater
+  + Sign of the Dawnflower
+  + Silt Sphere
+  + Silverlight
+  + Skim
+  + Slick Walls
+  + Snow Shape (Ulfen)
+  + Solidify Earth
+  + Song of Discord, Greater
+  + Speak with Waves
+  + Spindrift Spritz
+  + Spindrift Spritz, Mass
+  + Status, Greater
+  + Suffocation, Instant
+  + Suffocation, Slow
+  + Summon Barghest I
+  + Summon Barghest II
+  + Summon Monster 1
+  + Summon Monster 2
+  + Summon Monster 3
+  + Summon Monster 4
+  + Summon Monster 5
+  + Summon Monster 6
+  + Summon Monster 7
+  + Summon Monster 8
+  + Summon Monster 9
+  + Summon Nature's Ally 1
+  + Summon Nature's Ally 2
+  + Summon Nature's Ally 3
+  + Summon Nature's Ally 4
+  + Summon Nature's Ally 5
+  + Summon Nature's Ally 6
+  + Summon Nature's Ally 7
+  + Summon Nature's Ally 8
+  + Summon Nature's Ally 9
+  + Summon Ship
+  + Summon Totem Creature (Shoanti)
+  + Surelife
+  + Suspend Drowning
+  + Symbol of Storms
+  + Sympathetic Wounds
+  + Telepathic Silence
+  + Teratoid Caress
+  + Thorn Snare
+  + Torrent of Elemental Rage
+  + Touch of Madness
+  + Toxic Blood
+  + Traveling Dream
+  + True Creation
+  + Uncanny Reminder
+  + Undeath Sense
+  + Unflappable Mien
+  + Unhallowed Blows
+  + Unhallowed Blows, Greater
+  + Untold Wonder
+  + Veil of Ash
+  + Violent Misfire
+  + Violent Misfire, Greater
+  + Waft
+  + Wall of Mist
+  + Watchful Eye
+  + Water Shield
+  + Waterproof
+  + Wing Bounty
+  + Wing Thorns
+  + Wooden Wing Shield
+  + Woodland Rune
+
+================================================================
+Spells in database but NOT on AoN (30):
+================================================================
+  - Ablative Sphere
+  - Adjuring Step
+  - Blindness/Deafness
+  - Burning Arc
+  - Companion Transposition
+  - Dead Eye's Arrow
+  - Fleshwarping Swarm
+  - Fool's Gold
+  - Phantasmal Asphyxiation
+  - Shield Companion
+  - Snow Shape
+  - Summon Monster I
+  - Summon Monster II
+  - Summon Monster III
+  - Summon Monster IV
+  - Summon Monster IX
+  - Summon Monster V
+  - Summon Monster VI
+  - Summon Monster VII
+  - Summon Monster VIII
+  - Summon Nature's Ally I
+  - Summon Nature's Ally II
+  - Summon Nature's Ally III
+  - Summon Nature's Ally IV
+  - Summon Nature's Ally IX
+  - Summon Nature's Ally V
+  - Summon Nature's Ally VI
+  - Summon Nature's Ally VII
+  - Summon Nature's Ally VIII
+  - Summon Totem Creature
+
+Summary: AoN=3039 links, DB=2898 rows, missing_from_db=170, phantom_in_db=30
+
+Targeted check — "Mage's Evasion":
+  On AoN: NO
+  In DB:  NO

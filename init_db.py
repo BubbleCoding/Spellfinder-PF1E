@@ -237,6 +237,96 @@ INSERT_NO_ID_SQL = (
 )
 
 
+# Spells present in the CSV source that don't exist on Archives of Nethys.
+# These are phantom entries from third-party/adventure sources not in PF1e canon,
+# or exact duplicates of other spells.
+# Format: (name, source)
+PHANTOM_SPELLS = [
+    ("Mage's Evasion",   "Rappan Athuk"),       # not a real PF1e spell
+    ("Chant",            "Rappan Athuk"),        # not a real PF1e spell
+    ("Grand Curse",      "Rappan Athuk"),        # not a real PF1e spell
+    ("Cone Of Slime",    "Sword of Air"),        # not a real PF1e spell
+    ("Steal Book",       "PFS S3-09"),           # not a real PF1e spell
+    ("Corpse Hammer",    "Inner Sea Magic"),     # duplicate of Geb's Hammer
+    ("Winter's Grasp",   "People Of The North"), # renamed to Winter Grasp (Ultimate Wilderness)
+]
+
+# Linktexts that are garbled in the CSV — map spell name → correct linktext.
+LINKTEXT_FIXES = {
+    "Unfetter":                 "Unfetter",                 # was "Unfett er"
+    "Evolution Surge, Lesser":  "Evolution Surge, Lesser",  # was "Evolution Surge, Leser"
+    "Planar Adaptation, Mass":  "Planar Adaptation, Mass",  # was "Planar Adaptation< Mass"
+}
+
+# Spells whose names in the CSV don't match the canonical AoN name.
+# Format: old_name -> (new_name, new_linktext)
+# new_linktext should match the AoN ItemName parameter exactly.
+NAME_RENAMES = {
+    # Typos / wrong words
+    "Adjuring Step":            ("Abjuring Step",                   "Abjuring Step"),
+    "Companion Transposition":  ("Companion Transportation",         "Companion Transportation"),
+    "Dead Eye's Arrow":         ("Deadeye's Arrow",                  "Deadeye's Arrow"),
+    "Phantasmal Asphyxiation":  ("Phantasmal Asphixiation",          "Phantasmal Asphixiation"),
+    # Missing regional/source qualifiers
+    "Ablative Sphere":          ("Ablative Sphere (Garundi)",        "Ablative Sphere (Garundi)"),
+    "Burning Arc":              ("Burning Arc (Keleshite)",          "Burning Arc (Keleshite)"),
+    "Fleshwarping Swarm":       ("Fleshwarping Swarm (Drow)",        "Fleshwarping Swarm (Drow)"),
+    "Fool's Gold":              ("Fool's Gold (VC)",                 "Fool's Gold (VC)"),
+    "Shield Companion":         ("Shield Companion (ACG)",           "Shield Companion (ACG)"),
+    "Snow Shape":               ("Snow Shape (Ulfen)",               "Snow Shape (Ulfen)"),
+    "Summon Totem Creature":    ("Summon Totem Creature (Shoanti)",  "Summon Totem Creature (Shoanti)"),
+    # Roman numerals → Arabic (AoN renamed these)
+    "Summon Monster I":         ("Summon Monster 1",    "Summon Monster 1"),
+    "Summon Monster II":        ("Summon Monster 2",    "Summon Monster 2"),
+    "Summon Monster III":       ("Summon Monster 3",    "Summon Monster 3"),
+    "Summon Monster IV":        ("Summon Monster 4",    "Summon Monster 4"),
+    "Summon Monster V":         ("Summon Monster 5",    "Summon Monster 5"),
+    "Summon Monster VI":        ("Summon Monster 6",    "Summon Monster 6"),
+    "Summon Monster VII":       ("Summon Monster 7",    "Summon Monster 7"),
+    "Summon Monster VIII":      ("Summon Monster 8",    "Summon Monster 8"),
+    "Summon Monster IX":        ("Summon Monster 9",    "Summon Monster 9"),
+    "Summon Nature's Ally I":   ("Summon Nature's Ally 1",  "Summon Nature's Ally 1"),
+    "Summon Nature's Ally II":  ("Summon Nature's Ally 2",  "Summon Nature's Ally 2"),
+    "Summon Nature's Ally III": ("Summon Nature's Ally 3",  "Summon Nature's Ally 3"),
+    "Summon Nature's Ally IV":  ("Summon Nature's Ally 4",  "Summon Nature's Ally 4"),
+    "Summon Nature's Ally V":   ("Summon Nature's Ally 5",  "Summon Nature's Ally 5"),
+    "Summon Nature's Ally VI":  ("Summon Nature's Ally 6",  "Summon Nature's Ally 6"),
+    "Summon Nature's Ally VII": ("Summon Nature's Ally 7",  "Summon Nature's Ally 7"),
+    "Summon Nature's Ally VIII":("Summon Nature's Ally 8",  "Summon Nature's Ally 8"),
+    "Summon Nature's Ally IX":  ("Summon Nature's Ally 9",  "Summon Nature's Ally 9"),
+}
+
+
+def apply_fixups(cur):
+    """Remove phantom/duplicate spells, rename mismatched names, fix linktexts.
+
+    Called during build_db() *before* the FTS index is populated, so the FTS
+    table is always built from already-cleaned data.
+    """
+    for name, source in PHANTOM_SPELLS:
+        cur.execute(
+            "DELETE FROM spell_classes WHERE spell_id = "
+            "(SELECT id FROM spells WHERE name = ? AND source = ?)",
+            (name, source),
+        )
+        cur.execute(
+            "DELETE FROM spells WHERE name = ? AND source = ?",
+            (name, source),
+        )
+
+    for old_name, (new_name, new_linktext) in NAME_RENAMES.items():
+        cur.execute(
+            "UPDATE spells SET name = ?, linktext = ? WHERE name = ?",
+            (new_name, new_linktext, old_name),
+        )
+
+    for name, linktext in LINKTEXT_FIXES.items():
+        cur.execute(
+            "UPDATE spells SET linktext = ? WHERE name = ?",
+            (linktext, name),
+        )
+
+
 def parse_spell_level(raw: str):
     """Parse 'sorcerer/wizard 2, magus 2' into [(class, level), ...]."""
     if not raw or raw.strip() == "":
@@ -343,6 +433,9 @@ def build_db(csv_text: str):
                 (spell_id, class_name, level),
             )
             class_count += 1
+
+    # Remove phantom spells and fix broken linktexts before FTS is built
+    apply_fixups(cur)
 
     # Populate FTS index
     cur.execute(
