@@ -891,6 +891,86 @@ main {
 
 .hidden { display: none !important; }
 
+/* ── Info tab ──────────────────────────────────────────────────────────────── */
+#info-panel {
+    max-width: 860px;
+    margin: 1.5rem auto 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.info-section {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.5rem 2rem;
+}
+
+.info-section h2 {
+    font-family: var(--font-heading);
+    color: var(--accent);
+    margin: 0 0 0.75rem;
+    font-size: 1.25rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.4rem;
+}
+
+.info-section h3 {
+    font-family: var(--font-heading);
+    color: var(--text);
+    margin: 1.1rem 0 0.4rem;
+    font-size: 1rem;
+}
+
+.info-section p, .info-section ul, .info-section li {
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin: 0.3rem 0;
+}
+
+.info-section ul {
+    padding-left: 1.4rem;
+}
+
+.info-section li {
+    margin: 0.4rem 0;
+}
+
+.info-section code {
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.1em 0.4em;
+    font-size: 0.88em;
+    color: var(--accent);
+    white-space: nowrap;
+}
+
+.info-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.75rem;
+    font-size: 0.9rem;
+}
+
+.info-table th, .info-table td {
+    text-align: left;
+    padding: 0.45rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+}
+
+.info-table th {
+    color: var(--text);
+    font-weight: 600;
+    background: var(--input-bg);
+}
+
+.info-table tr:last-child td {
+    border-bottom: none;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
     header h1 { font-size: 1.6rem; }

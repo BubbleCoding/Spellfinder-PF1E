@@ -164,6 +164,8 @@ const paginationEl  = document.getElementById("pagination");
 const tabButtons        = document.querySelectorAll(".tab");
 const spellbookControls = document.getElementById("spellbook-controls");
 const summaryBar        = document.getElementById("summary-bar");
+const infoPanel         = document.getElementById("info-panel");
+const searchSection     = document.getElementById("search-section");
 const sbSelect          = document.getElementById("spellbook-select");
 const newSbBtn          = document.getElementById("new-spellbook-btn");
 const renameSbBtn       = document.getElementById("rename-spellbook-btn");
@@ -198,7 +200,7 @@ let debounceTimer = null;
 let showFavoritesOnly = false;
 
 // Spellbook state
-let currentTab = "all";           // "all" | "spellbook"
+let currentTab = "all";           // "all" | "spellbook" | "info"
 let currentSpellbookId = null;
 let spellbooks = [];              // [{id, name, spell_count}]
 let spellbookSpellIds = new Set();// spell_ids in active book
@@ -682,6 +684,7 @@ function updateURL(page) {
     if (showFavoritesOnly) state.set("favorites", "1");
     if (page > 1) state.set("page", String(page));
     if (currentTab === "spellbook") state.set("tab", "spellbook");
+    if (currentTab === "info") state.set("tab", "info");
     if (currentSpellbookId) state.set("spellbook", String(currentSpellbookId));
     history.replaceState(null, "", window.location.pathname + (state.toString() ? "?" + state.toString() : ""));
 }
@@ -915,6 +918,19 @@ function esc(s) {
 function switchTab(tab) {
     currentTab = tab;
     tabButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tab));
+
+    if (tab === "info") {
+        infoPanel.classList.remove("hidden");
+        searchSection.classList.add("hidden");
+        spellbookControls.classList.add("hidden");
+        summaryBar.classList.add("hidden");
+        favoritesBtn.classList.add("hidden");
+        updateURL(1);
+        return;
+    }
+
+    infoPanel.classList.add("hidden");
+    searchSection.classList.remove("hidden");
 
     if (tab === "spellbook") {
         spellbookControls.classList.remove("hidden");
@@ -1186,6 +1202,15 @@ async function restoreFromURL() {
     }
 
     const tab = p.get("tab");
+    if (tab === "info") {
+        currentTab = "info";
+        tabButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.tab === "info"));
+        infoPanel.classList.remove("hidden");
+        searchSection.classList.add("hidden");
+        favoritesBtn.classList.add("hidden");
+        return;
+    }
+
     if (tab === "spellbook") {
         currentTab = "spellbook";
         tabButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.tab === "spellbook"));

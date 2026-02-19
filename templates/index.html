@@ -16,6 +16,7 @@
         <div class="tab-bar">
             <button class="tab active" data-tab="all">All Spells</button>
             <button class="tab" data-tab="spellbook">Spellbook</button>
+            <button class="tab" data-tab="info">Info</button>
         </div>
 
         <div id="spellbook-controls" class="hidden">
@@ -33,6 +34,63 @@
 
         <div id="summary-bar" class="hidden"></div>
 
+        <div id="info-panel" class="hidden">
+            <div class="info-section">
+                <h2>Advanced Search</h2>
+                <p>Type any words into the search box to search across spell names, descriptions, schools, components, and more. Words are matched as prefixes, so <code>fire</code> matches <em>fireball</em>, <em>fire storm</em>, etc.</p>
+
+                <h3>Boolean operators</h3>
+                <p>For more control, use <code>AND</code>, <code>OR</code>, <code>NOT</code>, or <code>"quoted phrases"</code> in your query. When these are present the search is passed directly to the full-text engine with no prefix expansion.</p>
+
+                <h3>Field:value tokens</h3>
+                <p>You can narrow your search with <code>field:value</code> tokens anywhere in the search box. Multiple tokens are combined with AND.</p>
+                <table class="info-table">
+                    <thead><tr><th>Token</th><th>Matches</th><th>Example</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>class:name</code></td><td>Spells on a class list</td><td><code>class:wizard AND class:bard</code></td></tr>
+                        <tr><td><code>level:n</code></td><td>Spells at a specific level</td><td><code>class:paladin level:4</code></td></tr>
+                        <tr><td><code>school:name</code></td><td>Exact school match</td><td><code>school:transmutation</code></td></tr>
+                        <tr><td><code>subschool:name</code></td><td>Exact subschool match</td><td><code>subschool:polymorph</code></td></tr>
+                        <tr><td><code>descriptor:name</code></td><td>Descriptor flag</td><td><code>descriptor:fire</code></td></tr>
+                        <tr><td><code>domain:name</code></td><td>Domain list contains value</td><td><code>domain:fire</code></td></tr>
+                        <tr><td><code>spirit:name</code></td><td>Shaman spirit spell list</td><td><code>spirit:flame</code></td></tr>
+                        <tr><td><code>mystery:name</code></td><td>Oracle mystery spell list</td><td><code>mystery:ancestor</code></td></tr>
+                        <tr><td><code>deity:name</code></td><td>Deity list contains value</td><td><code>deity:asmodeus</code></td></tr>
+                        <tr><td><code>bloodline:name</code></td><td>Bloodline list contains value</td><td><code>bloodline:elemental</code></td></tr>
+                        <tr><td><code>patron:name</code></td><td>Patron list contains value</td><td><code>patron:shadow</code></td></tr>
+                        <tr><td><code>source:name</code></td><td>Source book contains value</td><td><code>source:APG</code></td></tr>
+                        <tr><td><code>cast:time</code></td><td>Casting time contains value</td><td><code>cast:swift</code></td></tr>
+                        <tr><td><code>duration:value</code></td><td>Duration contains value</td><td><code>duration:permanent</code></td></tr>
+                        <tr><td><code>range:value</code></td><td>Range contains value</td><td><code>range:personal</code></td></tr>
+                        <tr><td><code>target:value</code></td><td>Targets contains value</td><td><code>target:undead</code></td></tr>
+                        <tr><td><code>area:value</code></td><td>Area/effect contains value</td><td><code>area:cone</code></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="info-section">
+                <h2>Data Storage</h2>
+                <p>All your data — favorites and spellbooks — is stored in your browser's <strong>localStorage</strong>. Nothing is sent to any server; everything stays on your device.</p>
+                <ul>
+                    <li><strong>Favorites</strong> (★) are a per-device list of spell IDs stored automatically when you star a spell.</li>
+                    <li><strong>Spellbooks</strong> are stored the same way. If you clear your browser's site data, all spellbooks will be lost — use Export Key to back them up.</li>
+                    <li>Each browser profile has its own separate storage, so spellbooks created in Firefox won't appear in Chrome.</li>
+                </ul>
+            </div>
+
+            <div class="info-section">
+                <h2>Spellbook Keys</h2>
+                <p>A <em>spellbook key</em> is a JSON snapshot of a spellbook you can copy, save, or share.</p>
+                <ul>
+                    <li><strong>Export Key</strong> — opens a dialog with the key text. Copy it and save it somewhere safe (a text file, a notes app, etc.).</li>
+                    <li><strong>Import Key</strong> — paste a previously exported key to restore or import a spellbook. If a spellbook with the same name already exists, a new one is created alongside it.</li>
+                    <li>Keys include the spellbook name, all spells in the book, and the prepared/unprepared status of each spell.</li>
+                    <li>You can share a key with another player running Spellfinder — they import it on their own device and get a copy of your spellbook.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div id="search-section">
         <div class="search-bar">
             <input type="text" id="search-input" placeholder="Search spells... (e.g. fireball, class:wizard AND class:paladin, domain:fire, deity:asmodeus)" autofocus>
         </div>
@@ -125,6 +183,7 @@
         <div id="results-list"></div>
 
         <div class="pagination" id="pagination"></div>
+        </div><!-- #search-section -->
     </main>
 
     <div id="spellbook-picker" class="modal-overlay">
