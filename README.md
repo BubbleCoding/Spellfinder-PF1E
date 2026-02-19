@@ -1,6 +1,7 @@
 # Spellfinder — Pathfinder 1e Spell Search
 
-A local web app for searching all 2,905 Pathfinder 1e spells with full-text search, filters, and persistent spellbooks.
+A web app for searching all 2,905 Pathfinder 1e spells with full-text search, filters, and persistent spellbooks.
+The web app is live on: https://spellfinder-pf1e.onrender.com
 
 ## Features
 
@@ -37,6 +38,10 @@ The Spellbook tab lets you build persistent, named spell collections stored in y
 - **Import Key** — paste a previously exported key to restore or import a spellbook; prompts to rename if a name collision occurs
 - **Import List** — paste spell names (one per line) to bulk-add matching spells to the current spellbook; unrecognised names are reported
 - No class restrictions or slot enforcement — works for any caster type
+
+## Local run
+
+If you wish to run the app locally or modify it to your own wishes you can follow the steps below.
 
 ## Requirements
 
