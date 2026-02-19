@@ -25,6 +25,8 @@
             <button id="new-spellbook-btn">+ New</button>
             <button id="rename-spellbook-btn">Rename</button>
             <button id="delete-spellbook-btn">Delete</button>
+            <button id="export-key-btn">Export Key</button>
+            <button id="import-key-btn">Import Key</button>
             <button id="reset-prep-btn">Reset Prep</button>
             <button id="show-prepared-btn">★ Prepared Only</button>
         </div>
@@ -133,6 +135,18 @@
             <div class="modal-footer">
                 <button id="picker-new-btn">+ New Spellbook</button>
                 <button id="picker-close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="key-modal" class="modal-overlay">
+        <div class="modal-dialog">
+            <h3 class="modal-title">Spellbook Key</h3>
+            <p class="modal-subtitle">Copy this key to share or back up your spellbook.</p>
+            <textarea id="key-output" readonly></textarea>
+            <div class="modal-footer">
+                <button id="key-copy-btn">Copy to Clipboard</button>
+                <button id="key-close-btn">Close</button>
             </div>
         </div>
     </div>

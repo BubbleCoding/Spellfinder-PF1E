@@ -170,6 +170,14 @@ const renameSbBtn       = document.getElementById("rename-spellbook-btn");
 const deleteSbBtn       = document.getElementById("delete-spellbook-btn");
 const resetPrepBtn      = document.getElementById("reset-prep-btn");
 const showPreparedBtn   = document.getElementById("show-prepared-btn");
+const exportKeyBtn      = document.getElementById("export-key-btn");
+const importKeyBtn      = document.getElementById("import-key-btn");
+
+// Key export modal
+const keyModal   = document.getElementById("key-modal");
+const keyOutput  = document.getElementById("key-output");
+const keyCopyBtn = document.getElementById("key-copy-btn");
+const keyCloseBtn = document.getElementById("key-close-btn");
 
 // Picker modal
 const pickerModal     = document.getElementById("spellbook-picker");
@@ -443,6 +451,73 @@ async function removeSpellFromBook(spellId) {
         searchSpells(currentPage);
     } catch (err) {
         console.error("Failed to remove spell from book:", err);
+    }
+}
+
+// ── Spellbook key export / import ─────────────────────────────────────────────
+async function exportSpellbookKey(bookId) {
+    try {
+        const res = await fetch(`/api/spellbooks/${bookId}/export`);
+        const data = await res.json();
+        if (data.key) {
+            keyOutput.value = data.key;
+            keyModal.classList.add("open");
+            setTimeout(() => keyOutput.select(), 50);
+        }
+    } catch (err) {
+        console.error("Failed to export spellbook key:", err);
+    }
+}
+
+async function importSpellbookFromKey() {
+    const key = prompt("Paste your spellbook key:");
+    if (!key || !key.trim()) return;
+
+    // Preview: decode key to get name without inserting
+    let preview;
+    try {
+        const previewRes = await fetch(`/api/spellbooks/decode?key=${encodeURIComponent(key.trim())}`);
+        preview = await previewRes.json();
+        if (preview.error) {
+            alert("Invalid key — could not import spellbook.");
+            return;
+        }
+    } catch (err) {
+        alert("Could not reach the server.");
+        return;
+    }
+
+    // Name collision check
+    let finalName = preview.name;
+    const collision = spellbooks.some(sb => sb.name.toLowerCase() === preview.name.toLowerCase());
+    if (collision) {
+        const rename = confirm(`A spellbook named "${preview.name}" already exists.\nClick OK to rename it, or Cancel to skip the import.`);
+        if (!rename) return;
+        const newName = prompt("New name for this spellbook:", preview.name);
+        if (!newName || !newName.trim()) return;
+        finalName = newName.trim();
+    }
+
+    // Import
+    try {
+        const res = await fetch("/api/spellbooks/import", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ key: key.trim(), name: finalName }),
+        });
+        const data = await res.json();
+        if (data.id) {
+            spellbooks.push({ id: data.id, name: data.name, spell_count: data.spell_count });
+            spellbooks.sort((a, b) => a.name.localeCompare(b.name));
+            _populateSbSelect();
+            sbSelect.value = String(data.id);
+            await selectSpellbook(data.id);
+        } else {
+            alert("Import failed — invalid key.");
+        }
+    } catch (err) {
+        console.error("Import failed:", err);
+        alert("Import failed — could not reach the server.");
     }
 }
 
@@ -871,6 +946,46 @@ showPreparedBtn.addEventListener("click", () => {
     showPreparedOnly = !showPreparedOnly;
     showPreparedBtn.classList.toggle("active", showPreparedOnly);
     searchSpells(1);
+});
+
+// Export / Import key buttons
+exportKeyBtn.addEventListener("click", () => {
+    if (!currentSpellbookId) return;
+    exportSpellbookKey(currentSpellbookId);
+});
+
+importKeyBtn.addEventListener("click", importSpellbookFromKey);
+
+// Key modal close
+keyCloseBtn.addEventListener("click", () => {
+    keyModal.classList.remove("open");
+    keyCopyBtn.textContent = "Copy to Clipboard";
+    keyCopyBtn.classList.remove("copied");
+});
+keyModal.addEventListener("click", (e) => {
+    if (e.target === keyModal) {
+        keyModal.classList.remove("open");
+        keyCopyBtn.textContent = "Copy to Clipboard";
+        keyCopyBtn.classList.remove("copied");
+    }
+});
+
+// Copy key to clipboard
+keyCopyBtn.addEventListener("click", async () => {
+    try {
+        await navigator.clipboard.writeText(keyOutput.value);
+        keyCopyBtn.textContent = "Copied!";
+        keyCopyBtn.classList.add("copied");
+        setTimeout(() => {
+            keyCopyBtn.textContent = "Copy to Clipboard";
+            keyCopyBtn.classList.remove("copied");
+        }, 2000);
+    } catch (err) {
+        // Clipboard unavailable — textarea is already selectable as fallback
+        keyOutput.select();
+        keyCopyBtn.textContent = "Select All";
+        setTimeout(() => { keyCopyBtn.textContent = "Copy to Clipboard"; }, 2000);
+    }
 });
 
 // Event delegation on results list

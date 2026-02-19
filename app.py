@@ -1,12 +1,30 @@
 """Flask app serving the Spellfinder spell search API and frontend."""
 
+import base64
+import json
 import os
 import re
 import shlex
 import sqlite3
+import zlib
 from collections import defaultdict
 
 from flask import Flask, g, jsonify, render_template, request
+
+
+def encode_spellbook(data: dict) -> str:
+    """Encode a spellbook dict into a compact URL-safe string key."""
+    raw = json.dumps(data, separators=(",", ":")).encode()
+    compressed = zlib.compress(raw, level=9)
+    return base64.urlsafe_b64encode(compressed).decode()
+
+
+def decode_spellbook_key(key: str) -> dict:
+    """Decode a spellbook key string back into a dict."""
+    compressed = base64.urlsafe_b64decode(key.encode())
+    raw = zlib.decompress(compressed)
+    return json.loads(raw)
+
 
 app = Flask(__name__)
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pfinder.db")
@@ -701,6 +719,81 @@ def api_spellbooks_summary(sb_id):
         "total_cost": total_cost,
         "prepared_by_level": prepared_by_level,
     })
+
+
+@app.route("/api/spellbooks/<int:sb_id>/export")
+def api_spellbooks_export(sb_id):
+    db = get_db()
+    book = db.execute("SELECT * FROM spellbooks WHERE id = ?", (sb_id,)).fetchone()
+    if not book:
+        return jsonify({"error": "Spellbook not found"}), 404
+
+    spells = db.execute(
+        "SELECT spell_id, prepared FROM spellbook_spells WHERE spellbook_id = ?",
+        (sb_id,),
+    ).fetchall()
+
+    data = {
+        "name": book["name"],
+        "spells": [{"id": r["spell_id"], "prepared": bool(r["prepared"])} for r in spells],
+    }
+    return jsonify({"key": encode_spellbook(data)})
+
+
+@app.route("/api/spellbooks/decode")
+def api_spellbooks_decode():
+    key = request.args.get("key", "").strip()
+    if not key:
+        return jsonify({"error": "key required"}), 400
+    try:
+        data = decode_spellbook_key(key)
+        return jsonify({
+            "name": data.get("name", "Imported Spellbook"),
+            "spell_count": len(data.get("spells", [])),
+        })
+    except Exception:
+        return jsonify({"error": "Invalid key"}), 400
+
+
+@app.route("/api/spellbooks/import", methods=["POST"])
+def api_spellbooks_import():
+    try:
+        body = request.get_json(force=True)
+        key = (body.get("key") or "").strip()
+        name_override = (body.get("name") or "").strip()
+
+        data = decode_spellbook_key(key)
+        name = name_override or data.get("name", "Imported Spellbook")
+        spells = data.get("spells", [])
+
+        db = get_db()
+
+        # Validate spell IDs against the spells table
+        valid_ids: set = set()
+        if spells:
+            spell_ids = [s["id"] for s in spells if isinstance(s.get("id"), int)]
+            if spell_ids:
+                ph = ",".join("?" * len(spell_ids))
+                rows = db.execute(f"SELECT id FROM spells WHERE id IN ({ph})", spell_ids).fetchall()
+                valid_ids = {r["id"] for r in rows}
+
+        cursor = db.execute("INSERT INTO spellbooks (name) VALUES (?)", (name,))
+        new_id = cursor.lastrowid
+
+        for spell in spells:
+            sid = spell.get("id")
+            if sid in valid_ids:
+                db.execute(
+                    "INSERT OR IGNORE INTO spellbook_spells (spellbook_id, spell_id, prepared)"
+                    " VALUES (?, ?, 0)",
+                    (new_id, sid),
+                )
+
+        db.commit()
+        return jsonify({"id": new_id, "name": name, "spell_count": len(valid_ids)}), 201
+
+    except Exception:
+        return jsonify({"error": "Invalid key"}), 400
 
 
 def build_fts_query(user_query: str) -> str:
