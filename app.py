@@ -157,8 +157,9 @@ def parse_advanced_query(q):
         class:wizard AND class:paladin  → AND (both classes required)
 
     Returns (fts_text: str, field_clauses: list of dicts)
-    Each dict: {'field': str, 'value': str, 'op': 'AND'|'OR'}
+    Each dict: {'field': str, 'value': str, 'op': 'AND'|'OR', 'negate': bool}
     'op' describes how this clause joins with the previous clause of the same field.
+    Prefix a token with ! to negate it: !class:cleric excludes cleric spells.
     """
     try:
         tokens = shlex.split(q)
@@ -178,16 +179,17 @@ def parse_advanced_query(q):
             pending_op = "OR"
             continue
 
-        m = re.match(r"^(\w+):(.+)$", tok, re.IGNORECASE)
+        m = re.match(r"^(!?)(\w+):(.+)$", tok, re.IGNORECASE)
         if m:
-            raw_field = m.group(1).lower()
-            value = m.group(2)
+            negate = m.group(1) == "!"
+            raw_field = m.group(2).lower()
+            value = m.group(3)
             # Strip surrounding quotes shlex may have left on the value half
             if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
                 value = value[1:-1]
             canonical = QUERY_FIELD_MAP.get(raw_field)
             if canonical:
-                field_clauses.append({"field": canonical, "value": value, "op": pending_op})
+                field_clauses.append({"field": canonical, "value": value, "op": pending_op, "negate": negate})
                 pending_op = "OR"
                 continue
 
@@ -208,83 +210,116 @@ def apply_field_clauses(field_clauses, where_clauses, params):
         grouped[clause["field"]].append(clause)
 
     for field, clauses in grouped.items():
-        # has_and: true if any clause (after the first) is AND-connected to its predecessor
-        has_and = any(c["op"] == "AND" for c in clauses[1:])
+        positive = [c for c in clauses if not c.get("negate")]
+        negative = [c for c in clauses if c.get("negate")]
+        # has_and: true if any positive clause (after the first) is AND-connected
+        has_and = any(c["op"] == "AND" for c in positive[1:])
 
         if field == "class":
-            if has_and:
-                # Each class value gets its own subquery; all must match (AND in WHERE)
-                for c in clauses:
+            if positive:
+                if has_and:
+                    for c in positive:
+                        where_clauses.append(
+                            "s.id IN (SELECT spell_id FROM spell_classes WHERE LOWER(class_name) = ?)"
+                        )
+                        params.append(c["value"].lower())
+                else:
+                    ph = ",".join("?" * len(positive))
                     where_clauses.append(
-                        "s.id IN (SELECT spell_id FROM spell_classes WHERE LOWER(class_name) = ?)"
+                        f"s.id IN (SELECT spell_id FROM spell_classes WHERE LOWER(class_name) IN ({ph}))"
                     )
-                    params.append(c["value"].lower())
-            else:
-                ph = ",".join("?" * len(clauses))
+                    params.extend(c["value"].lower() for c in positive)
+            for c in negative:
                 where_clauses.append(
-                    f"s.id IN (SELECT spell_id FROM spell_classes WHERE LOWER(class_name) IN ({ph}))"
+                    "s.id NOT IN (SELECT spell_id FROM spell_classes WHERE LOWER(class_name) = ?)"
                 )
-                params.extend(c["value"].lower() for c in clauses)
+                params.append(c["value"].lower())
 
         elif field == "level":
-            valid = []
-            for c in clauses:
+            pos_valid = []
+            for c in positive:
                 try:
-                    valid.append(int(c["value"]))
+                    pos_valid.append(int(c["value"]))
                 except ValueError:
                     pass
-            if valid:
-                ph = ",".join("?" * len(valid))
+            if pos_valid:
+                ph = ",".join("?" * len(pos_valid))
                 where_clauses.append(
                     f"s.id IN (SELECT spell_id FROM spell_classes WHERE level IN ({ph}))"
                 )
-                params.extend(valid)
+                params.extend(pos_valid)
+            for c in negative:
+                try:
+                    where_clauses.append(
+                        "s.id NOT IN (SELECT spell_id FROM spell_classes WHERE level = ?)"
+                    )
+                    params.append(int(c["value"]))
+                except ValueError:
+                    pass
 
         elif field == "category":
-            if has_and:
-                for c in clauses:
+            if positive:
+                if has_and:
+                    for c in positive:
+                        where_clauses.append(
+                            "s.id IN (SELECT spell_id FROM spell_categories WHERE category = ?)"
+                        )
+                        params.append(c["value"])
+                else:
+                    ph = ",".join("?" * len(positive))
                     where_clauses.append(
-                        "s.id IN (SELECT spell_id FROM spell_categories WHERE category = ?)"
+                        f"s.id IN (SELECT spell_id FROM spell_categories WHERE category IN ({ph}))"
                     )
-                    params.append(c["value"])
-            else:
-                ph = ",".join("?" * len(clauses))
+                    params.extend(c["value"] for c in positive)
+            for c in negative:
                 where_clauses.append(
-                    f"s.id IN (SELECT spell_id FROM spell_categories WHERE category IN ({ph}))"
+                    "s.id NOT IN (SELECT spell_id FROM spell_categories WHERE category = ?)"
                 )
-                params.extend(c["value"] for c in clauses)
+                params.append(c["value"])
 
         elif field == "descriptor":
-            parts = []
-            for c in clauses:
+            pos_parts = []
+            for c in positive:
                 col = DESCRIPTOR_FLAG_MAP.get(c["value"].lower())
                 if col:
-                    parts.append((f"s.{col} = 1", c["op"]))
-            if parts:
+                    pos_parts.append((f"s.{col} = 1", c["op"]))
+            if pos_parts:
+                expr = pos_parts[0][0]
+                for clause_expr, op in pos_parts[1:]:
+                    expr += f" {op} {clause_expr}"
+                where_clauses.append(f"({expr})")
+            for c in negative:
+                col = DESCRIPTOR_FLAG_MAP.get(c["value"].lower())
+                if col:
+                    where_clauses.append(f"(s.{col} = 0 OR s.{col} IS NULL)")
+
+        elif field in QUERY_EXACT_FIELDS:
+            if positive:
+                if has_and:
+                    for c in positive:
+                        where_clauses.append(f"LOWER(s.{field}) = ?")
+                        params.append(c["value"].lower())
+                else:
+                    ph = ",".join("?" * len(positive))
+                    where_clauses.append(f"LOWER(s.{field}) IN ({ph})")
+                    params.extend(c["value"].lower() for c in positive)
+            for c in negative:
+                where_clauses.append(f"LOWER(s.{field}) != ?")
+                params.append(c["value"].lower())
+
+        elif field in QUERY_LIKE_FIELDS:
+            if positive:
+                parts = []
+                for c in positive:
+                    parts.append((f"LOWER(s.{field}) LIKE ?", c["op"]))
+                    params.append(f"%{c['value'].lower()}%")
                 expr = parts[0][0]
                 for clause_expr, op in parts[1:]:
                     expr += f" {op} {clause_expr}"
                 where_clauses.append(f"({expr})")
-
-        elif field in QUERY_EXACT_FIELDS:
-            if has_and:
-                for c in clauses:
-                    where_clauses.append(f"LOWER(s.{field}) = ?")
-                    params.append(c["value"].lower())
-            else:
-                ph = ",".join("?" * len(clauses))
-                where_clauses.append(f"LOWER(s.{field}) IN ({ph})")
-                params.extend(c["value"].lower() for c in clauses)
-
-        elif field in QUERY_LIKE_FIELDS:
-            parts = []
-            for c in clauses:
-                parts.append((f"LOWER(s.{field}) LIKE ?", c["op"]))
+            for c in negative:
+                where_clauses.append(f"LOWER(s.{field}) NOT LIKE ?")
                 params.append(f"%{c['value'].lower()}%")
-            expr = parts[0][0]
-            for clause_expr, op in parts[1:]:
-                expr += f" {op} {clause_expr}"
-            where_clauses.append(f"({expr})")
 
 
 def get_db():
