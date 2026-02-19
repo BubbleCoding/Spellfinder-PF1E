@@ -198,6 +198,15 @@ let spellbookSpellIds = new Set();// spell_ids in active book
 let showPreparedOnly = false;
 let _pickerSpell = null;          // spell object currently in picker
 
+// ── Spellbook localStorage helpers ────────────────────────────────────────────
+const LS_KEY = "spellfinder_spellbooks";
+function _lsGetAll() {
+    try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; }
+    catch { return []; }
+}
+function _lsSave(arr) { localStorage.setItem(LS_KEY, JSON.stringify(arr)); }
+function _lsGetBook(id) { return _lsGetAll().find(sb => sb.id === id) || null; }
+
 // Favorites — persisted as a Set of spell IDs in localStorage
 let favorites = new Set(JSON.parse(localStorage.getItem("spellfinder_favorites") || "[]"));
 
@@ -255,14 +264,13 @@ async function loadFilters() {
 }
 
 // ── Spellbook management ──────────────────────────────────────────────────────
-async function loadSpellbooks() {
-    try {
-        const resp = await fetch("/api/spellbooks");
-        spellbooks = await resp.json();
-        _populateSbSelect();
-    } catch (err) {
-        console.error("Failed to load spellbooks:", err);
-    }
+function loadSpellbooks() {
+    spellbooks = _lsGetAll().map(sb => ({
+        id: sb.id,
+        name: sb.name,
+        spell_count: (sb.spells || []).length,
+    }));
+    _populateSbSelect();
 }
 
 function _populateSbSelect() {
@@ -281,16 +289,12 @@ function _populateSbSelect() {
 }
 
 async function selectSpellbook(id) {
-    currentSpellbookId = id ? parseInt(id) : null;
+    currentSpellbookId = id ? Number(id) : null;
     spellbookSpellIds.clear();
     if (currentSpellbookId) {
-        // Fetch all spell IDs in the book for "in book" badge on All tab
-        try {
-            const resp = await fetch(`/api/spells?spellbook_id=${currentSpellbookId}&per_page=all`);
-            const data = await resp.json();
-            data.spells.forEach(s => spellbookSpellIds.add(s.id));
-        } catch (err) {
-            console.error("Failed to load spellbook spell IDs:", err);
+        const sbData = _lsGetBook(currentSpellbookId);
+        if (sbData) {
+            (sbData.spells || []).forEach(s => spellbookSpellIds.add(s.id));
         }
         await updateSummaryBar();
     } else {
@@ -302,42 +306,82 @@ async function selectSpellbook(id) {
 
 async function updateSummaryBar() {
     if (!currentSpellbookId) return;
-    try {
-        const resp = await fetch(`/api/spellbooks/${currentSpellbookId}/summary`);
-        const s = await resp.json();
-
-        const prepEntries = Object.entries(s.prepared_by_level).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
-        const levelNames = ["0th","1st","2nd","3rd","4th","5th","6th","7th","8th","9th"];
-        let prepHtml = "";
-        if (prepEntries.length === 0) {
-            prepHtml = '<span class="summary-stat">None prepared today</span>';
-        } else {
-            prepHtml = prepEntries.map(([lvl, cnt]) =>
-                `<span class="prep-level-badge">${levelNames[parseInt(lvl)] || lvl+"th"} ×${cnt}</span>`
-            ).join(" ");
-        }
-
+    const sbData = _lsGetBook(currentSpellbookId);
+    if (!sbData || !sbData.spells || sbData.spells.length === 0) {
         summaryBar.innerHTML = `
-            <span class="summary-stat"><strong>${s.total_spells}</strong> spells</span>
-            <span class="summary-stat"><strong>${s.total_pages}</strong> pages</span>
-            <span class="summary-stat"><strong>${s.total_cost.toLocaleString()}</strong> gp</span>
-            <span class="summary-stat">Prepared: <span class="prep-section">${prepHtml}</span></span>
+            <span class="summary-stat"><strong>0</strong> spells</span>
+            <span class="summary-stat"><strong>0</strong> pages</span>
+            <span class="summary-stat"><strong>0</strong> gp</span>
+            <span class="summary-stat">Prepared: <span class="prep-section"><span class="summary-stat">None prepared today</span></span></span>
         `;
         summaryBar.classList.remove("hidden");
-    } catch (err) {
-        console.error("Failed to update summary bar:", err);
+        return;
     }
+
+    // Fetch spell objects to get class/level info for cost/page calculations
+    let spellObjects = [];
+    try {
+        const params = new URLSearchParams();
+        sbData.spells.forEach(s => params.append("id", s.id));
+        params.set("per_page", "all");
+        const resp = await fetch("/api/spells?" + params.toString());
+        const data = await resp.json();
+        spellObjects = data.spells || [];
+    } catch (err) {
+        console.error("Failed to load spell data for summary:", err);
+        return;
+    }
+
+    // Build spell id → min level map
+    const minLevelMap = {};
+    for (const spell of spellObjects) {
+        if (spell.classes && spell.classes.length > 0) {
+            minLevelMap[spell.id] = Math.min(...spell.classes.map(c => c.level));
+        } else {
+            minLevelMap[spell.id] = 0;
+        }
+    }
+
+    let total_spells = sbData.spells.length;
+    let total_pages = 0;
+    let total_cost = 0;
+    const prepared_by_level = {};
+    for (const entry of sbData.spells) {
+        const lvl = minLevelMap[entry.id] ?? 0;
+        total_pages += lvl === 0 ? 1 : lvl;
+        total_cost += lvl * 10;
+        if (entry.prepared) {
+            const key = String(lvl);
+            prepared_by_level[key] = (prepared_by_level[key] || 0) + 1;
+        }
+    }
+
+    const prepEntries = Object.entries(prepared_by_level).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+    const levelNames = ["0th","1st","2nd","3rd","4th","5th","6th","7th","8th","9th"];
+    let prepHtml = "";
+    if (prepEntries.length === 0) {
+        prepHtml = '<span class="summary-stat">None prepared today</span>';
+    } else {
+        prepHtml = prepEntries.map(([lvl, cnt]) =>
+            `<span class="prep-level-badge">${levelNames[parseInt(lvl)] || lvl+"th"} ×${cnt}</span>`
+        ).join(" ");
+    }
+
+    summaryBar.innerHTML = `
+        <span class="summary-stat"><strong>${total_spells}</strong> spells</span>
+        <span class="summary-stat"><strong>${total_pages}</strong> pages</span>
+        <span class="summary-stat"><strong>${total_cost.toLocaleString()}</strong> gp</span>
+        <span class="summary-stat">Prepared: <span class="prep-section">${prepHtml}</span></span>
+    `;
+    summaryBar.classList.remove("hidden");
 }
 
-async function refreshSpellbookSpellIds() {
-    if (!currentSpellbookId) { spellbookSpellIds.clear(); return; }
-    try {
-        const resp = await fetch(`/api/spells?spellbook_id=${currentSpellbookId}&per_page=all`);
-        const data = await resp.json();
-        spellbookSpellIds.clear();
-        data.spells.forEach(s => spellbookSpellIds.add(s.id));
-    } catch (err) {
-        console.error("Failed to refresh spellbook spell IDs:", err);
+function refreshSpellbookSpellIds() {
+    spellbookSpellIds.clear();
+    if (!currentSpellbookId) return;
+    const sbData = _lsGetBook(currentSpellbookId);
+    if (sbData) {
+        (sbData.spells || []).forEach(s => spellbookSpellIds.add(s.id));
     }
 }
 
@@ -361,12 +405,9 @@ function _renderPickerList() {
         return;
     }
     spellbooks.forEach(sb => {
-        const inBook = spellbookSpellIds.has(_pickerSpell.id) && currentSpellbookId === sb.id
-            ? true
-            : false;
-        // We need per-book membership — use a lightweight check via the already-fetched set only for active book
-        // For other books we'd need an API call; instead track membership per-book via fetched data.
-        // For simplicity, show checkmark only for active book; clicking always toggles add/remove.
+        const sbData = _lsGetBook(sb.id);
+        let inBook = !!(sbData && sbData.spells && sbData.spells.some(s => s.id === _pickerSpell.id));
+
         const li = document.createElement("li");
         li.className = "picker-item";
         li.dataset.sbId = sb.id;
@@ -381,25 +422,30 @@ function _renderPickerList() {
         li.appendChild(checkSpan);
         li.appendChild(nameSpan);
 
-        li.addEventListener("click", async () => {
+        li.addEventListener("click", () => {
+            const all = _lsGetAll();
+            const bookEntry = all.find(x => x.id === sb.id);
+            if (!bookEntry) return;
             if (inBook) {
-                await fetch(`/api/spellbooks/${sb.id}/spells/${_pickerSpell.id}`, { method: "DELETE" });
+                bookEntry.spells = bookEntry.spells.filter(s => s.id !== _pickerSpell.id);
                 checkSpan.textContent = "";
-                // update count
                 const sbObj = spellbooks.find(x => x.id === sb.id);
                 if (sbObj) { sbObj.spell_count = Math.max(0, sbObj.spell_count - 1); nameSpan.textContent = `${sbObj.name} (${sbObj.spell_count})`; }
-                if (currentSpellbookId === sb.id) { await refreshSpellbookSpellIds(); await updateSummaryBar(); searchSpells(currentPage); }
+                inBook = false;
             } else {
-                await fetch(`/api/spellbooks/${sb.id}/spells`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({spell_id: _pickerSpell.id}) });
+                bookEntry.spells.push({id: _pickerSpell.id, prepared: false});
                 checkSpan.textContent = "✓";
                 const sbObj = spellbooks.find(x => x.id === sb.id);
                 if (sbObj) { sbObj.spell_count += 1; nameSpan.textContent = `${sbObj.name} (${sbObj.spell_count})`; }
-                if (currentSpellbookId === sb.id) { await refreshSpellbookSpellIds(); await updateSummaryBar(); }
+                inBook = true;
             }
+            _lsSave(all);
             _populateSbSelect();
-            // Toggle inBook for subsequent clicks on this li
-            li.dataset.inBook = inBook ? "" : "1";
-            checkSpan.textContent = inBook ? "" : "✓";
+            if (currentSpellbookId === sb.id) {
+                refreshSpellbookSpellIds();
+                updateSummaryBar();
+                if (currentTab === "spellbook") searchSpells(currentPage);
+            }
         });
 
         pickerList.appendChild(li);
@@ -414,50 +460,54 @@ function closePickerModal() {
 // ── Prepared toggle ───────────────────────────────────────────────────────────
 async function togglePrepared(spellId, newVal) {
     if (!currentSpellbookId) return;
-    try {
-        await fetch(`/api/spellbooks/${currentSpellbookId}/spells/${spellId}`, {
-            method: "PATCH",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({prepared: newVal ? 1 : 0}),
-        });
-        // Update DOM
-        const card = resultsList.querySelector(`.spell-card[data-spell-id="${spellId}"]`);
-        if (card) {
-            const btn = card.querySelector(".prepared-toggle");
-            if (newVal) {
-                card.classList.add("is-prepared");
-                if (btn) { btn.textContent = "✦"; btn.classList.add("prepared"); btn.title = "Mark as unprepared"; }
-            } else {
-                card.classList.remove("is-prepared");
-                if (btn) { btn.textContent = "✧"; btn.classList.remove("prepared"); btn.title = "Mark as prepared"; }
-            }
-        }
-        await updateSummaryBar();
-    } catch (err) {
-        console.error("Failed to toggle prepared:", err);
+    const all = _lsGetAll();
+    const bookEntry = all.find(x => x.id === currentSpellbookId);
+    if (bookEntry) {
+        const spellEntry = bookEntry.spells.find(s => s.id === spellId);
+        if (spellEntry) spellEntry.prepared = !!newVal;
+        _lsSave(all);
     }
+    // Update DOM
+    const card = resultsList.querySelector(`.spell-card[data-spell-id="${spellId}"]`);
+    if (card) {
+        const btn = card.querySelector(".prepared-toggle");
+        if (newVal) {
+            card.classList.add("is-prepared");
+            if (btn) { btn.textContent = "✦"; btn.classList.add("prepared"); btn.title = "Mark as unprepared"; }
+        } else {
+            card.classList.remove("is-prepared");
+            if (btn) { btn.textContent = "✧"; btn.classList.remove("prepared"); btn.title = "Mark as prepared"; }
+        }
+    }
+    await updateSummaryBar();
 }
 
 async function removeSpellFromBook(spellId) {
     if (!currentSpellbookId) return;
-    try {
-        await fetch(`/api/spellbooks/${currentSpellbookId}/spells/${spellId}`, { method: "DELETE" });
-        await refreshSpellbookSpellIds();
-        // Update spellbooks count
-        const sb = spellbooks.find(x => x.id === currentSpellbookId);
-        if (sb) sb.spell_count = Math.max(0, sb.spell_count - 1);
-        _populateSbSelect();
-        await updateSummaryBar();
-        searchSpells(currentPage);
-    } catch (err) {
-        console.error("Failed to remove spell from book:", err);
+    const all = _lsGetAll();
+    const bookEntry = all.find(x => x.id === currentSpellbookId);
+    if (bookEntry) {
+        bookEntry.spells = bookEntry.spells.filter(s => s.id !== spellId);
+        _lsSave(all);
     }
+    refreshSpellbookSpellIds();
+    const sb = spellbooks.find(x => x.id === currentSpellbookId);
+    if (sb) sb.spell_count = Math.max(0, sb.spell_count - 1);
+    _populateSbSelect();
+    await updateSummaryBar();
+    searchSpells(currentPage);
 }
 
 // ── Spellbook key export / import ─────────────────────────────────────────────
 async function exportSpellbookKey(bookId) {
+    const sbData = _lsGetBook(bookId);
+    if (!sbData) return;
     try {
-        const res = await fetch(`/api/spellbooks/${bookId}/export`);
+        const res = await fetch("/api/spellbooks/encode", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({name: sbData.name, spells: sbData.spells}),
+        });
         const data = await res.json();
         if (data.key) {
             keyOutput.value = data.key;
@@ -473,12 +523,11 @@ async function importSpellbookFromKey() {
     const key = prompt("Paste your spellbook key:");
     if (!key || !key.trim()) return;
 
-    // Preview: decode key to get name without inserting
-    let preview;
+    let decoded;
     try {
-        const previewRes = await fetch(`/api/spellbooks/decode?key=${encodeURIComponent(key.trim())}`);
-        preview = await previewRes.json();
-        if (preview.error) {
+        const res = await fetch(`/api/spellbooks/decode?key=${encodeURIComponent(key.trim())}`);
+        decoded = await res.json();
+        if (decoded.error) {
             alert("Invalid key — could not import spellbook.");
             return;
         }
@@ -488,37 +537,27 @@ async function importSpellbookFromKey() {
     }
 
     // Name collision check
-    let finalName = preview.name;
-    const collision = spellbooks.some(sb => sb.name.toLowerCase() === preview.name.toLowerCase());
+    let finalName = decoded.name;
+    const collision = spellbooks.some(sb => sb.name.toLowerCase() === decoded.name.toLowerCase());
     if (collision) {
-        const rename = confirm(`A spellbook named "${preview.name}" already exists.\nClick OK to rename it, or Cancel to skip the import.`);
+        const rename = confirm(`A spellbook named "${decoded.name}" already exists.\nClick OK to rename it, or Cancel to skip the import.`);
         if (!rename) return;
-        const newName = prompt("New name for this spellbook:", preview.name);
+        const newName = prompt("New name for this spellbook:", decoded.name);
         if (!newName || !newName.trim()) return;
         finalName = newName.trim();
     }
 
-    // Import
-    try {
-        const res = await fetch("/api/spellbooks/import", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ key: key.trim(), name: finalName }),
-        });
-        const data = await res.json();
-        if (data.id) {
-            spellbooks.push({ id: data.id, name: data.name, spell_count: data.spell_count });
-            spellbooks.sort((a, b) => a.name.localeCompare(b.name));
-            _populateSbSelect();
-            sbSelect.value = String(data.id);
-            await selectSpellbook(data.id);
-        } else {
-            alert("Import failed — invalid key.");
-        }
-    } catch (err) {
-        console.error("Import failed:", err);
-        alert("Import failed — could not reach the server.");
-    }
+    // Store in localStorage
+    const newId = Date.now();
+    const spells = (decoded.spells || []).map(s => ({id: s.id, prepared: !!s.prepared}));
+    const all = _lsGetAll();
+    all.push({id: newId, name: finalName, spells});
+    _lsSave(all);
+    spellbooks.push({id: newId, name: finalName, spell_count: spells.length});
+    spellbooks.sort((a, b) => a.name.localeCompare(b.name));
+    _populateSbSelect();
+    sbSelect.value = String(newId);
+    await selectSpellbook(newId);
 }
 
 // ── Search ────────────────────────────────────────────────────────────────────
@@ -559,8 +598,20 @@ async function searchSpells(page = 1) {
         [...favorites].forEach(id => params.append("id", String(id)));
     }
     if (currentTab === "spellbook" && currentSpellbookId) {
-        params.set("spellbook_id", String(currentSpellbookId));
-        if (showPreparedOnly) params.set("prepared_only", "1");
+        const sbData = _lsGetBook(currentSpellbookId);
+        const spellsToShow = (showPreparedOnly && sbData)
+            ? sbData.spells.filter(s => s.prepared)
+            : (sbData ? sbData.spells : []);
+        if (spellsToShow.length === 0) {
+            resultsCount.textContent = "";
+            const msg = !showPreparedOnly
+                ? "No spells in this spellbook yet. Search all spells and use ＋ to add them."
+                : "No spells prepared today.";
+            resultsList.innerHTML = `<div class="no-results">${msg}</div>`;
+            paginationEl.innerHTML = "";
+            return;
+        }
+        spellsToShow.forEach(s => params.append("id", s.id));
     }
     params.set("page", String(page));
     params.set("per_page", ppVal);
@@ -612,6 +663,15 @@ function renderResults(data) {
     const start = (page - 1) * perPage + 1;
     const end   = Math.min(page * perPage, total);
     resultsCount.textContent = `Showing ${start}–${end} of ${total} spells`;
+
+    // Merge prepared state from localStorage for spellbook tab
+    if (currentTab === "spellbook" && currentSpellbookId) {
+        const sbData = _lsGetBook(currentSpellbookId);
+        spells.forEach(spell => {
+            const entry = sbData && sbData.spells ? sbData.spells.find(s => s.id === spell.id) : null;
+            spell.prepared = (entry && entry.prepared) ? 1 : 0;
+        });
+    }
 
     resultsList.innerHTML = "";
     spells.forEach(spell => {
@@ -870,75 +930,61 @@ sbSelect.addEventListener("change", () => selectSpellbook(sbSelect.value));
 newSbBtn.addEventListener("click", async () => {
     const name = prompt("Spellbook name:");
     if (!name || !name.trim()) return;
-    try {
-        const resp = await fetch("/api/spellbooks", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({name: name.trim()}),
-        });
-        const sb = await resp.json();
-        spellbooks.push({id: sb.id, name: sb.name, spell_count: 0});
-        spellbooks.sort((a, b) => a.name.localeCompare(b.name));
-        _populateSbSelect();
-        sbSelect.value = String(sb.id);
-        await selectSpellbook(sb.id);
-    } catch (err) {
-        console.error("Failed to create spellbook:", err);
-    }
+    const newId = Date.now();
+    const all = _lsGetAll();
+    all.push({id: newId, name: name.trim(), spells: []});
+    _lsSave(all);
+    spellbooks.push({id: newId, name: name.trim(), spell_count: 0});
+    spellbooks.sort((a, b) => a.name.localeCompare(b.name));
+    _populateSbSelect();
+    sbSelect.value = String(newId);
+    await selectSpellbook(newId);
 });
 
 // Rename spellbook
-renameSbBtn.addEventListener("click", async () => {
+renameSbBtn.addEventListener("click", () => {
     if (!currentSpellbookId) return;
     const sb = spellbooks.find(x => x.id === currentSpellbookId);
     const name = prompt("New name:", sb ? sb.name : "");
     if (!name || !name.trim()) return;
-    try {
-        await fetch(`/api/spellbooks/${currentSpellbookId}`, {
-            method: "PATCH",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({name: name.trim()}),
-        });
-        if (sb) sb.name = name.trim();
-        spellbooks.sort((a, b) => a.name.localeCompare(b.name));
-        _populateSbSelect();
-    } catch (err) {
-        console.error("Failed to rename spellbook:", err);
-    }
+    const all = _lsGetAll();
+    const bookEntry = all.find(x => x.id === currentSpellbookId);
+    if (bookEntry) bookEntry.name = name.trim();
+    _lsSave(all);
+    if (sb) sb.name = name.trim();
+    spellbooks.sort((a, b) => a.name.localeCompare(b.name));
+    _populateSbSelect();
 });
 
 // Delete spellbook
-deleteSbBtn.addEventListener("click", async () => {
+deleteSbBtn.addEventListener("click", () => {
     if (!currentSpellbookId) return;
     const sb = spellbooks.find(x => x.id === currentSpellbookId);
     if (!confirm(`Delete spellbook "${sb ? sb.name : ""}"? This cannot be undone.`)) return;
-    try {
-        await fetch(`/api/spellbooks/${currentSpellbookId}`, { method: "DELETE" });
-        spellbooks = spellbooks.filter(x => x.id !== currentSpellbookId);
-        currentSpellbookId = null;
-        spellbookSpellIds.clear();
-        _populateSbSelect();
-        summaryBar.classList.add("hidden");
-        summaryBar.innerHTML = "";
-        searchSpells(1);
-    } catch (err) {
-        console.error("Failed to delete spellbook:", err);
-    }
+    _lsSave(_lsGetAll().filter(x => x.id !== currentSpellbookId));
+    spellbooks = spellbooks.filter(x => x.id !== currentSpellbookId);
+    currentSpellbookId = null;
+    spellbookSpellIds.clear();
+    _populateSbSelect();
+    summaryBar.classList.add("hidden");
+    summaryBar.innerHTML = "";
+    searchSpells(1);
 });
 
 // Reset prep
 resetPrepBtn.addEventListener("click", async () => {
     if (!currentSpellbookId) return;
     if (!confirm("Reset all prepared spells for today?")) return;
-    try {
-        await fetch(`/api/spellbooks/${currentSpellbookId}/reset-prep`, { method: "POST" });
-        showPreparedOnly = false;
-        showPreparedBtn.classList.remove("active");
-        await updateSummaryBar();
-        searchSpells(currentPage);
-    } catch (err) {
-        console.error("Failed to reset prep:", err);
+    const all = _lsGetAll();
+    const bookEntry = all.find(x => x.id === currentSpellbookId);
+    if (bookEntry) {
+        bookEntry.spells.forEach(s => { s.prepared = false; });
+        _lsSave(all);
     }
+    showPreparedOnly = false;
+    showPreparedBtn.classList.remove("active");
+    await updateSummaryBar();
+    searchSpells(currentPage);
 });
 
 // Show prepared only toggle
@@ -1055,39 +1101,23 @@ pickerModal.addEventListener("click", (e) => {
 pickerNewBtn.addEventListener("click", async () => {
     const name = prompt("New spellbook name:");
     if (!name || !name.trim()) return;
-    try {
-        const resp = await fetch("/api/spellbooks", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({name: name.trim()}),
-        });
-        const sb = await resp.json();
-        spellbooks.push({id: sb.id, name: sb.name, spell_count: 0});
-        spellbooks.sort((a, b) => a.name.localeCompare(b.name));
-        _populateSbSelect();
-        // Auto-add the current spell to the new book
-        if (_pickerSpell) {
-            await fetch(`/api/spellbooks/${sb.id}/spells`, {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({spell_id: _pickerSpell.id}),
-            });
-            sb.spell_count = 1;
-            spellbooks.find(x => x.id === sb.id).spell_count = 1;
-            _populateSbSelect();
-        }
-        closePickerModal();
-        // Select this new spellbook
-        if (currentTab === "spellbook") {
-            sbSelect.value = String(sb.id);
-            await selectSpellbook(sb.id);
-        } else if (!currentSpellbookId) {
-            currentSpellbookId = sb.id;
-            sbSelect.value = String(sb.id);
-            await refreshSpellbookSpellIds();
-        }
-    } catch (err) {
-        console.error("Failed to create spellbook from picker:", err);
+    const newId = Date.now();
+    const initialSpells = _pickerSpell ? [{id: _pickerSpell.id, prepared: false}] : [];
+    const all = _lsGetAll();
+    all.push({id: newId, name: name.trim(), spells: initialSpells});
+    _lsSave(all);
+    spellbooks.push({id: newId, name: name.trim(), spell_count: initialSpells.length});
+    spellbooks.sort((a, b) => a.name.localeCompare(b.name));
+    _populateSbSelect();
+    closePickerModal();
+    // Select this new spellbook
+    if (currentTab === "spellbook") {
+        sbSelect.value = String(newId);
+        await selectSpellbook(newId);
+    } else if (!currentSpellbookId) {
+        currentSpellbookId = newId;
+        sbSelect.value = String(newId);
+        refreshSpellbookSpellIds();
     }
 });
 

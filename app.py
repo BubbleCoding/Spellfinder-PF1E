@@ -29,39 +29,6 @@ def decode_spellbook_key(key: str) -> dict:
 app = Flask(__name__)
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pfinder.db")
 
-_CREATE_SPELLBOOKS = """
-CREATE TABLE IF NOT EXISTS spellbooks (
-    id   INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL
-);
-"""
-
-_CREATE_SPELLBOOK_SPELLS = """
-CREATE TABLE IF NOT EXISTS spellbook_spells (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    spellbook_id INTEGER NOT NULL,
-    spell_id     INTEGER NOT NULL,
-    prepared     INTEGER NOT NULL DEFAULT 0,
-    FOREIGN KEY (spellbook_id) REFERENCES spellbooks(id) ON DELETE CASCADE,
-    FOREIGN KEY (spell_id)     REFERENCES spells(id),
-    UNIQUE (spellbook_id, spell_id)
-);
-"""
-
-
-def _ensure_spellbook_tables():
-    if not os.path.exists(DB_PATH):
-        return
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("PRAGMA foreign_keys = ON")
-    conn.execute(_CREATE_SPELLBOOKS)
-    conn.execute(_CREATE_SPELLBOOK_SPELLS)
-    conn.commit()
-    conn.close()
-
-
-_ensure_spellbook_tables()
-
 # Grouped LIKE filter options: param_value.lower() → (db_field, like_keyword)
 # Area options cover both the `area` and `effect` columns.
 _DESCRIPTOR_TAGS = [
@@ -494,20 +461,12 @@ def api_spells():
         if _col:
             where_clauses.append(f"(s.{_col} = 0 OR s.{_col} IS NULL)")
 
-    # Favorites filter — match a specific set of spell IDs
+    # Favorites / spellbook id filter — match a specific set of spell IDs
     _fav_ids = [int(i) for i in request.args.getlist("id") if i.strip().lstrip("-").isdigit()]
     if _fav_ids:
         _ph = ",".join("?" * len(_fav_ids))
         where_clauses.append(f"s.id IN ({_ph})")
         params.extend(_fav_ids)
-
-    # Spellbook filter — join spellbook_spells and optionally filter by prepared
-    _spellbook_id_raw = request.args.get("spellbook_id", "").strip()
-    _spellbook_id = int(_spellbook_id_raw) if _spellbook_id_raw.isdigit() else None
-    if _spellbook_id is not None:
-        joins.append(f"JOIN spellbook_spells sbs ON sbs.spell_id = s.id AND sbs.spellbook_id = {_spellbook_id}")
-        if request.args.get("prepared_only") == "1":
-            where_clauses.append("sbs.prepared = 1")
 
     where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
     join_sql = " ".join(joins)
@@ -545,13 +504,6 @@ def api_spells():
     spells = []
     for row in rows:
         spell = dict(row)
-        # Add prepared flag when in spellbook mode
-        if _spellbook_id is not None:
-            prep_row = db.execute(
-                "SELECT prepared FROM spellbook_spells WHERE spellbook_id = ? AND spell_id = ?",
-                (_spellbook_id, spell["id"]),
-            ).fetchone()
-            spell["prepared"] = prep_row["prepared"] if prep_row else 0
         # Attach class/level list
         cls_rows = db.execute(
             "SELECT class_name, level FROM spell_classes WHERE spell_id = ? ORDER BY class_name",
@@ -588,156 +540,16 @@ def api_spells():
     )
 
 
-# ── Spellbook API ─────────────────────────────────────────────────────────────
+# ── Spellbook key encode / decode ─────────────────────────────────────────────
+# Spellbooks are stored client-side in localStorage; these endpoints only
+# handle the compact key format used for export/import sharing.
 
-@app.route("/api/spellbooks", methods=["GET"])
-def api_spellbooks_list():
-    db = get_db()
-    rows = db.execute(
-        "SELECT sb.id, sb.name, COUNT(sbs.id) AS spell_count "
-        "FROM spellbooks sb "
-        "LEFT JOIN spellbook_spells sbs ON sbs.spellbook_id = sb.id "
-        "GROUP BY sb.id ORDER BY sb.name"
-    ).fetchall()
-    return jsonify([dict(r) for r in rows])
-
-
-@app.route("/api/spellbooks", methods=["POST"])
-def api_spellbooks_create():
-    db = get_db()
+@app.route("/api/spellbooks/encode", methods=["POST"])
+def api_spellbooks_encode():
     data = request.get_json(force=True)
-    name = (data.get("name") or "").strip()
-    if not name:
-        return jsonify({"error": "name required"}), 400
-    cur = db.execute("INSERT INTO spellbooks (name) VALUES (?)", (name,))
-    db.commit()
-    return jsonify({"id": cur.lastrowid, "name": name}), 201
-
-
-@app.route("/api/spellbooks/<int:sb_id>", methods=["DELETE"])
-def api_spellbooks_delete(sb_id):
-    db = get_db()
-    db.execute("DELETE FROM spellbooks WHERE id = ?", (sb_id,))
-    db.commit()
-    return "", 204
-
-
-@app.route("/api/spellbooks/<int:sb_id>", methods=["PATCH"])
-def api_spellbooks_rename(sb_id):
-    db = get_db()
-    data = request.get_json(force=True)
-    name = (data.get("name") or "").strip()
-    if not name:
-        return jsonify({"error": "name required"}), 400
-    db.execute("UPDATE spellbooks SET name = ? WHERE id = ?", (name, sb_id))
-    db.commit()
-    return jsonify({"id": sb_id, "name": name})
-
-
-@app.route("/api/spellbooks/<int:sb_id>/spells", methods=["POST"])
-def api_spellbooks_add_spell(sb_id):
-    db = get_db()
-    data = request.get_json(force=True)
-    spell_id = data.get("spell_id")
-    if spell_id is None:
-        return jsonify({"error": "spell_id required"}), 400
-    try:
-        db.execute(
-            "INSERT OR IGNORE INTO spellbook_spells (spellbook_id, spell_id) VALUES (?, ?)",
-            (sb_id, int(spell_id)),
-        )
-        db.commit()
-    except sqlite3.IntegrityError:
-        pass
-    return "", 201
-
-
-@app.route("/api/spellbooks/<int:sb_id>/spells/<int:spell_id>", methods=["DELETE"])
-def api_spellbooks_remove_spell(sb_id, spell_id):
-    db = get_db()
-    db.execute(
-        "DELETE FROM spellbook_spells WHERE spellbook_id = ? AND spell_id = ?",
-        (sb_id, spell_id),
-    )
-    db.commit()
-    return "", 204
-
-
-@app.route("/api/spellbooks/<int:sb_id>/spells/<int:spell_id>", methods=["PATCH"])
-def api_spellbooks_update_spell(sb_id, spell_id):
-    db = get_db()
-    data = request.get_json(force=True)
-    prepared = 1 if data.get("prepared") else 0
-    db.execute(
-        "UPDATE spellbook_spells SET prepared = ? WHERE spellbook_id = ? AND spell_id = ?",
-        (prepared, sb_id, spell_id),
-    )
-    db.commit()
-    return jsonify({"prepared": prepared})
-
-
-@app.route("/api/spellbooks/<int:sb_id>/reset-prep", methods=["POST"])
-def api_spellbooks_reset_prep(sb_id):
-    db = get_db()
-    db.execute(
-        "UPDATE spellbook_spells SET prepared = 0 WHERE spellbook_id = ?", (sb_id,)
-    )
-    db.commit()
-    return "", 204
-
-
-@app.route("/api/spellbooks/<int:sb_id>/summary")
-def api_spellbooks_summary(sb_id):
-    db = get_db()
-    # All spells in the book
-    rows = db.execute(
-        "SELECT sbs.spell_id, sbs.prepared, "
-        "(SELECT MIN(level) FROM spell_classes WHERE spell_id = sbs.spell_id) AS min_level "
-        "FROM spellbook_spells sbs WHERE sbs.spellbook_id = ?",
-        (sb_id,),
-    ).fetchall()
-
-    total_spells = len(rows)
-    total_pages = 0
-    total_cost = 0
-    prepared_by_level = {}
-
-    for r in rows:
-        lvl = r["min_level"] or 0
-        # Pages: 0th level counts as 1, others as their level
-        pages_for_spell = 1 if lvl == 0 else lvl
-        total_pages += pages_for_spell
-        # Cost: lvl × 10 gp (0th level = 0 gp)
-        total_cost += lvl * 10
-        if r["prepared"]:
-            key = str(lvl)
-            prepared_by_level[key] = prepared_by_level.get(key, 0) + 1
-
-    return jsonify({
-        "total_spells": total_spells,
-        "total_pages": total_pages,
-        "total_cost": total_cost,
-        "prepared_by_level": prepared_by_level,
-    })
-
-
-@app.route("/api/spellbooks/<int:sb_id>/export")
-def api_spellbooks_export(sb_id):
-    db = get_db()
-    book = db.execute("SELECT * FROM spellbooks WHERE id = ?", (sb_id,)).fetchone()
-    if not book:
-        return jsonify({"error": "Spellbook not found"}), 404
-
-    spells = db.execute(
-        "SELECT spell_id, prepared FROM spellbook_spells WHERE spellbook_id = ?",
-        (sb_id,),
-    ).fetchall()
-
-    data = {
-        "name": book["name"],
-        "spells": [{"id": r["spell_id"], "prepared": bool(r["prepared"])} for r in spells],
-    }
-    return jsonify({"key": encode_spellbook(data)})
+    name = (data.get("name") or "Spellbook").strip()
+    spells = data.get("spells", [])
+    return jsonify({"key": encode_spellbook({"name": name, "spells": spells})})
 
 
 @app.route("/api/spellbooks/decode")
@@ -749,49 +561,8 @@ def api_spellbooks_decode():
         data = decode_spellbook_key(key)
         return jsonify({
             "name": data.get("name", "Imported Spellbook"),
-            "spell_count": len(data.get("spells", [])),
+            "spells": data.get("spells", []),
         })
-    except Exception:
-        return jsonify({"error": "Invalid key"}), 400
-
-
-@app.route("/api/spellbooks/import", methods=["POST"])
-def api_spellbooks_import():
-    try:
-        body = request.get_json(force=True)
-        key = (body.get("key") or "").strip()
-        name_override = (body.get("name") or "").strip()
-
-        data = decode_spellbook_key(key)
-        name = name_override or data.get("name", "Imported Spellbook")
-        spells = data.get("spells", [])
-
-        db = get_db()
-
-        # Validate spell IDs against the spells table
-        valid_ids: set = set()
-        if spells:
-            spell_ids = [s["id"] for s in spells if isinstance(s.get("id"), int)]
-            if spell_ids:
-                ph = ",".join("?" * len(spell_ids))
-                rows = db.execute(f"SELECT id FROM spells WHERE id IN ({ph})", spell_ids).fetchall()
-                valid_ids = {r["id"] for r in rows}
-
-        cursor = db.execute("INSERT INTO spellbooks (name) VALUES (?)", (name,))
-        new_id = cursor.lastrowid
-
-        for spell in spells:
-            sid = spell.get("id")
-            if sid in valid_ids:
-                db.execute(
-                    "INSERT OR IGNORE INTO spellbook_spells (spellbook_id, spell_id, prepared)"
-                    " VALUES (?, ?, 0)",
-                    (new_id, sid),
-                )
-
-        db.commit()
-        return jsonify({"id": new_id, "name": name, "spell_count": len(valid_ids)}), 201
-
     except Exception:
         return jsonify({"error": "Invalid key"}), 400
 
