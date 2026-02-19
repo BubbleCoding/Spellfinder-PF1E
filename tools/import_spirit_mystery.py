@@ -29,7 +29,7 @@ except ImportError:
 
 ROOT_DIR  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH   = os.path.join(ROOT_DIR, "pfinder.db")
-XLSX_PATH = os.path.join(ROOT_DIR, "spirit and mystery.xlsx")
+XLSX_PATH = os.path.join(ROOT_DIR, "data", "spirit and mystery.xlsx")
 
 # Matches a spell entry: any text followed by (Nth) where N is an integer
 ENTRY_RE = re.compile(r'(.+?)\s*\((\d+)(?:st|nd|rd|th)\)', re.IGNORECASE)

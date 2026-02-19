@@ -36,31 +36,31 @@ echo       Done.
 :: Build database on first run, or rebuild if schema is outdated
 if not exist "pfinder.db" (
     echo [3/5] Building spell database - first run only, please wait...
-    .venv\Scripts\python init_db.py
+    .venv\Scripts\python tools\init_db.py
 ) else (
     .venv\Scripts\python -c "import sqlite3; c=sqlite3.connect('pfinder.db'); c.execute('SELECT spirit FROM spells LIMIT 1'); c.close()" >nul 2>&1
     if errorlevel 1 (
         echo [3/5] Database schema update detected, rebuilding - please wait...
-        .venv\Scripts\python init_db.py
+        .venv\Scripts\python tools\init_db.py
     ) else (
         echo [3/5] Database ready.
     )
 )
 
 :: Import spell categories if the data file exists
-if exist "categorization\categories_raw.json" (
+if exist "tools\categories_raw.json" (
     echo [4/5] Importing spell categories...
-    .venv\Scripts\python categorization\import_categories.py
+    .venv\Scripts\python tools\import_categories.py
     echo       Done.
 ) else (
     echo [4/5] No category data found, skipping.
 )
 
 :: Import oracle mystery and shaman spirit spells if the Excel file exists
-if exist "spirit and mystery.xlsx" (
+if exist "data\spirit and mystery.xlsx" (
     echo [5/5] Importing spirit and mystery spells...
     .venv\Scripts\python -m pip install openpyxl -q
-    .venv\Scripts\python categorization\import_spirit_mystery.py
+    .venv\Scripts\python tools\import_spirit_mystery.py
     echo       Done.
 ) else (
     echo [5/5] No spirit/mystery data found, skipping.
