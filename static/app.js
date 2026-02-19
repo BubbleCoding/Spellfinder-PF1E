@@ -173,7 +173,26 @@ const deleteSbBtn       = document.getElementById("delete-spellbook-btn");
 const resetPrepBtn      = document.getElementById("reset-prep-btn");
 const showPreparedBtn   = document.getElementById("show-prepared-btn");
 const exportKeyBtn      = document.getElementById("export-key-btn");
+const exportListBtn     = document.getElementById("export-list-btn");
 const importKeyBtn      = document.getElementById("import-key-btn");
+const importListBtn     = document.getElementById("import-list-btn");
+
+// Confirm modal
+const confirmModal       = document.getElementById("confirm-modal");
+const confirmModalTitle  = document.getElementById("confirm-modal-title");
+const confirmModalMsg    = document.getElementById("confirm-modal-msg");
+const confirmModalOk     = document.getElementById("confirm-modal-ok");
+const confirmModalCancel = document.getElementById("confirm-modal-cancel");
+
+// Import-key modal
+const importKeyModal   = document.getElementById("import-key-modal");
+const importKeyInput   = document.getElementById("import-key-input");
+const importKeyOk      = document.getElementById("import-key-ok");
+const importKeyCancel  = document.getElementById("import-key-cancel");
+
+// Key modal title/subtitle (shared between export-key and export-list)
+const keyModalTitle    = document.getElementById("key-modal-title");
+const keyModalSubtitle = document.getElementById("key-modal-subtitle");
 
 // Name prompt modal (replaces window.prompt for spellbook naming)
 const nameModal       = document.getElementById("name-modal");
@@ -187,6 +206,13 @@ const keyModal   = document.getElementById("key-modal");
 const keyOutput  = document.getElementById("key-output");
 const keyCopyBtn = document.getElementById("key-copy-btn");
 const keyCloseBtn = document.getElementById("key-close-btn");
+
+// Import-list modal
+const importListModal   = document.getElementById("import-list-modal");
+const importListInput   = document.getElementById("import-list-input");
+const importListResults = document.getElementById("import-list-results");
+const importListOk      = document.getElementById("import-list-ok");
+const importListCancel  = document.getElementById("import-list-cancel");
 
 // Picker modal
 const pickerModal     = document.getElementById("spellbook-picker");
@@ -303,6 +329,52 @@ function promptName(title, defaultValue = "") {
         nameModalCancel.addEventListener("click", onCancel);
         nameModalInput.addEventListener("keydown", onKey);
         nameModal.addEventListener("click", onOverlay);
+    });
+}
+
+// ── Styled confirm dialog ─────────────────────────────────────────────────────
+function promptConfirm(title, message) {
+    return new Promise(resolve => {
+        confirmModalTitle.textContent = title;
+        confirmModalMsg.textContent   = message;
+        confirmModal.classList.add("open");
+
+        function cleanup() {
+            confirmModal.classList.remove("open");
+            confirmModalOk.removeEventListener("click", onOk);
+            confirmModalCancel.removeEventListener("click", onCancel);
+            confirmModal.removeEventListener("click", onOverlay);
+        }
+        function onOk()      { cleanup(); resolve(true);  }
+        function onCancel()  { cleanup(); resolve(false); }
+        function onOverlay(e){ if (e.target === confirmModal) onCancel(); }
+
+        confirmModalOk.addEventListener("click", onOk);
+        confirmModalCancel.addEventListener("click", onCancel);
+        confirmModal.addEventListener("click", onOverlay);
+    });
+}
+
+// ── Styled key-paste dialog ───────────────────────────────────────────────────
+function promptKeyInput() {
+    return new Promise(resolve => {
+        importKeyInput.value = "";
+        importKeyModal.classList.add("open");
+        setTimeout(() => importKeyInput.focus(), 50);
+
+        function cleanup() {
+            importKeyModal.classList.remove("open");
+            importKeyOk.removeEventListener("click", onOk);
+            importKeyCancel.removeEventListener("click", onCancel);
+            importKeyModal.removeEventListener("click", onOverlay);
+        }
+        function onOk()      { const v = importKeyInput.value.trim(); cleanup(); resolve(v || null); }
+        function onCancel()  { cleanup(); resolve(null); }
+        function onOverlay(e){ if (e.target === importKeyModal) onCancel(); }
+
+        importKeyOk.addEventListener("click", onOk);
+        importKeyCancel.addEventListener("click", onCancel);
+        importKeyModal.addEventListener("click", onOverlay);
     });
 }
 
@@ -553,6 +625,8 @@ async function exportSpellbookKey(bookId) {
         });
         const data = await res.json();
         if (data.key) {
+            keyModalTitle.textContent    = "Spellbook Key";
+            keyModalSubtitle.textContent = "Copy this key to share or back up your spellbook.";
             keyOutput.value = data.key;
             keyModal.classList.add("open");
             setTimeout(() => keyOutput.select(), 50);
@@ -562,13 +636,34 @@ async function exportSpellbookKey(bookId) {
     }
 }
 
+async function exportSpellList(bookId) {
+    const sbData = _lsGetBook(bookId);
+    if (!sbData || !sbData.spells || sbData.spells.length === 0) return;
+    try {
+        const params = new URLSearchParams();
+        sbData.spells.forEach(s => params.append("id", s.id));
+        params.set("per_page", "all");
+        params.set("sort", "name");
+        const resp = await fetch("/api/spells?" + params.toString());
+        const data = await resp.json();
+        const names = (data.spells || []).map(s => s.name).join("\n");
+        keyModalTitle.textContent    = "Export Spell List";
+        keyModalSubtitle.textContent = "Copy this list of spell names, one per line.";
+        keyOutput.value = names;
+        keyModal.classList.add("open");
+        setTimeout(() => keyOutput.select(), 50);
+    } catch (err) {
+        console.error("Failed to export spell list:", err);
+    }
+}
+
 async function importSpellbookFromKey() {
-    const key = prompt("Paste your spellbook key:");
-    if (!key || !key.trim()) return;
+    const key = await promptKeyInput();
+    if (!key) return;
 
     let decoded;
     try {
-        const res = await fetch(`/api/spellbooks/decode?key=${encodeURIComponent(key.trim())}`);
+        const res = await fetch(`/api/spellbooks/decode?key=${encodeURIComponent(key)}`);
         decoded = await res.json();
         if (decoded.error) {
             alert("Invalid key — could not import spellbook.");
@@ -583,9 +678,12 @@ async function importSpellbookFromKey() {
     let finalName = decoded.name;
     const collision = spellbooks.some(sb => sb.name.toLowerCase() === decoded.name.toLowerCase());
     if (collision) {
-        const rename = confirm(`A spellbook named "${decoded.name}" already exists.\nClick OK to rename it, or Cancel to skip the import.`);
+        const rename = await promptConfirm(
+            "Name Already Exists",
+            `A spellbook named "${decoded.name}" already exists. Rename it to import?`
+        );
         if (!rename) return;
-        const newName = prompt("New name for this spellbook:", decoded.name);
+        const newName = await promptName("New name for this spellbook:", decoded.name);
         if (!newName || !newName.trim()) return;
         finalName = newName.trim();
     }
@@ -1014,10 +1112,14 @@ renameSbBtn.addEventListener("click", async () => {
 });
 
 // Delete spellbook
-deleteSbBtn.addEventListener("click", () => {
+deleteSbBtn.addEventListener("click", async () => {
     if (!currentSpellbookId) return;
     const sb = spellbooks.find(x => x.id === currentSpellbookId);
-    if (!confirm(`Delete spellbook "${sb ? sb.name : ""}"? This cannot be undone.`)) return;
+    const ok = await promptConfirm(
+        "Delete Spellbook",
+        `Delete "${sb ? sb.name : ""}"? This cannot be undone.`
+    );
+    if (!ok) return;
     _lsSave(_lsGetAll().filter(x => x.id !== currentSpellbookId));
     spellbooks = spellbooks.filter(x => x.id !== currentSpellbookId);
     currentSpellbookId = null;
@@ -1031,7 +1133,8 @@ deleteSbBtn.addEventListener("click", () => {
 // Reset prep
 resetPrepBtn.addEventListener("click", async () => {
     if (!currentSpellbookId) return;
-    if (!confirm("Reset all prepared spells for today?")) return;
+    const ok = await promptConfirm("Reset Prep", "Reset all prepared spells for today?");
+    if (!ok) return;
     const all = _lsGetAll();
     const bookEntry = all.find(x => x.id === currentSpellbookId);
     if (bookEntry) {
@@ -1057,7 +1160,97 @@ exportKeyBtn.addEventListener("click", () => {
     exportSpellbookKey(currentSpellbookId);
 });
 
+exportListBtn.addEventListener("click", () => {
+    if (!currentSpellbookId) return;
+    exportSpellList(currentSpellbookId);
+});
+
 importKeyBtn.addEventListener("click", importSpellbookFromKey);
+
+// ── Import spells from plain-text list ────────────────────────────────────────
+function openImportListModal() {
+    importListInput.value = "";
+    importListResults.innerHTML = "";
+    importListResults.classList.add("hidden");
+    importListOk.disabled = false;
+    importListOk.textContent = "Import";
+    importListModal.classList.add("open");
+    setTimeout(() => importListInput.focus(), 50);
+}
+
+async function doImportList() {
+    if (!currentSpellbookId) return;
+    const lines = importListInput.value.split("\n");
+    const names = lines.map(l => l.trim()).filter(Boolean);
+    if (!names.length) return;
+
+    importListOk.disabled = true;
+    importListOk.textContent = "Importing…";
+
+    let data;
+    try {
+        const res = await fetch("/api/spells/lookup-by-name", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({names}),
+        });
+        data = await res.json();
+    } catch (err) {
+        alert("Could not reach the server.");
+        importListOk.disabled = false;
+        importListOk.textContent = "Import";
+        return;
+    }
+
+    // Add matched spells to the current spellbook (skip duplicates silently)
+    const all = _lsGetAll();
+    const bookEntry = all.find(x => x.id === currentSpellbookId);
+    if (bookEntry) {
+        const existingIds = new Set(bookEntry.spells.map(s => s.id));
+        let added = 0;
+        for (const spell of data.matched) {
+            if (!existingIds.has(spell.id)) {
+                bookEntry.spells.push({id: spell.id, prepared: false});
+                existingIds.add(spell.id);
+                added++;
+            }
+        }
+        _lsSave(all);
+        const sb = spellbooks.find(x => x.id === currentSpellbookId);
+        if (sb) sb.spell_count = bookEntry.spells.length;
+        _populateSbSelect();
+        refreshSpellbookSpellIds();
+        await updateSummaryBar();
+        searchSpells(1);
+
+        // Show results
+        let html = `<div class="result-ok">✓ ${added} spell${added !== 1 ? "s" : ""} added`;
+        const dupes = data.matched.length - added;
+        if (dupes > 0) html += ` (${dupes} already in spellbook)`;
+        html += `.</div>`;
+        if (data.unmatched.length) {
+            html += `<div class="result-miss-label">Not found (${data.unmatched.length}):</div>`;
+            html += `<ul class="result-miss-list">` +
+                data.unmatched.map(n => `<li>${n}</li>`).join("") +
+                `</ul>`;
+        }
+        importListResults.innerHTML = html;
+        importListResults.classList.remove("hidden");
+    }
+
+    importListOk.disabled = false;
+    importListOk.textContent = "Import";
+}
+
+importListBtn.addEventListener("click", () => {
+    if (!currentSpellbookId) return;
+    openImportListModal();
+});
+importListOk.addEventListener("click", doImportList);
+importListCancel.addEventListener("click", () => importListModal.classList.remove("open"));
+importListModal.addEventListener("click", (e) => {
+    if (e.target === importListModal) importListModal.classList.remove("open");
+});
 
 // Key modal close
 keyCloseBtn.addEventListener("click", () => {

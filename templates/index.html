@@ -27,7 +27,9 @@
             <button id="rename-spellbook-btn">Rename</button>
             <button id="delete-spellbook-btn">Delete</button>
             <button id="export-key-btn">Export Key</button>
+            <button id="export-list-btn">Export List</button>
             <button id="import-key-btn">Import Key</button>
+            <button id="import-list-btn">Import List</button>
             <button id="reset-prep-btn">Reset Prep</button>
             <button id="show-prepared-btn">★ Prepared Only</button>
         </div>
@@ -83,7 +85,9 @@
                 <p>A <em>spellbook key</em> is a JSON snapshot of a spellbook you can copy, save, or share.</p>
                 <ul>
                     <li><strong>Export Key</strong> — opens a dialog with the key text. Copy it and save it somewhere safe (a text file, a notes app, etc.).</li>
-                    <li><strong>Import Key</strong> — paste a previously exported key to restore or import a spellbook. If a spellbook with the same name already exists, a new one is created alongside it.</li>
+                    <li><strong>Export List</strong> — opens a dialog with the spellbook's spell names, one per line. Useful for sharing a readable list or for printing.</li>
+                    <li><strong>Import Key</strong> — paste a previously exported key to restore or import a spellbook. If a spellbook with the same name already exists, you can rename it on import.</li>
+                    <li><strong>Import List</strong> — paste a plain list of spell names, one per line. Any names found in the database are added to the currently selected spellbook. Unrecognised names are reported so you can correct them.</li>
                     <li>Keys include the spellbook name, all spells in the book, and the prepared/unprepared status of each spell.</li>
                     <li>You can share a key with another player running Spellfinder — they import it on their own device and get a copy of your spellbook.</li>
                 </ul>
@@ -211,12 +215,48 @@
 
     <div id="key-modal" class="modal-overlay">
         <div class="modal-dialog">
-            <h3 class="modal-title">Spellbook Key</h3>
-            <p class="modal-subtitle">Copy this key to share or back up your spellbook.</p>
+            <h3 class="modal-title" id="key-modal-title">Spellbook Key</h3>
+            <p class="modal-subtitle" id="key-modal-subtitle">Copy this key to share or back up your spellbook.</p>
             <textarea id="key-output" readonly></textarea>
             <div class="modal-footer">
                 <button id="key-copy-btn">Copy to Clipboard</button>
                 <button id="key-close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirm-modal" class="modal-overlay">
+        <div class="modal-dialog" style="min-width:320px">
+            <h3 class="modal-title" id="confirm-modal-title">Confirm</h3>
+            <p id="confirm-modal-msg" class="confirm-modal-msg"></p>
+            <div class="modal-footer">
+                <button id="confirm-modal-ok">OK</button>
+                <button id="confirm-modal-cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="import-key-modal" class="modal-overlay">
+        <div class="modal-dialog">
+            <h3 class="modal-title">Import Spellbook Key</h3>
+            <p class="modal-subtitle">Paste a previously exported spellbook key below.</p>
+            <textarea id="import-key-input" placeholder="Paste your key here..."></textarea>
+            <div class="modal-footer">
+                <button id="import-key-ok">Import</button>
+                <button id="import-key-cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="import-list-modal" class="modal-overlay">
+        <div class="modal-dialog">
+            <h3 class="modal-title">Import Spells from List</h3>
+            <p class="modal-subtitle">Paste spell names below, one per line. Matches are added to the current spellbook.</p>
+            <textarea id="import-list-input" placeholder="Fireball&#10;Haste&#10;Mirror Image&#10;..."></textarea>
+            <div id="import-list-results" class="import-list-results hidden"></div>
+            <div class="modal-footer">
+                <button id="import-list-ok">Import</button>
+                <button id="import-list-cancel">Cancel</button>
             </div>
         </div>
     </div>

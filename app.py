@@ -540,6 +540,30 @@ def api_spells():
     )
 
 
+# ── Spell name lookup (for list import) ───────────────────────────────────────
+
+@app.route("/api/spells/lookup-by-name", methods=["POST"])
+def api_spells_lookup_by_name():
+    data = request.get_json(force=True)
+    raw_names = data.get("names") or []
+    names = [n.strip() for n in raw_names if n.strip()]
+    if not names:
+        return jsonify({"matched": [], "unmatched": []})
+
+    db = get_db()
+    placeholders = ",".join("?" * len(names))
+    rows = db.execute(
+        f"SELECT id, name FROM spells WHERE LOWER(name) IN ({placeholders})",
+        [n.lower() for n in names],
+    ).fetchall()
+
+    matched_by_lower = {row["name"].lower(): {"id": row["id"], "name": row["name"]} for row in rows}
+    matched = list(matched_by_lower.values())
+    unmatched = [n for n in names if n.lower() not in matched_by_lower]
+
+    return jsonify({"matched": matched, "unmatched": unmatched})
+
+
 # ── Spellbook key encode / decode ─────────────────────────────────────────────
 # Spellbooks are stored client-side in localStorage; these endpoints only
 # handle the compact key format used for export/import sharing.

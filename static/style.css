@@ -889,6 +889,78 @@ main {
     color: var(--accent);
 }
 
+/* Confirm modal message */
+.confirm-modal-msg {
+    color: var(--text);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin: 0.5rem 0 1rem;
+}
+
+/* Import-key modal textarea */
+#import-key-input {
+    width: 100%;
+    height: 6.5rem;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: monospace;
+    font-size: 0.8rem;
+    padding: 0.5rem;
+    resize: vertical;
+    margin: 0.5rem 0 1rem;
+    line-height: 1.5;
+    word-break: break-all;
+    box-sizing: border-box;
+}
+#import-key-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+/* Import-list modal textarea */
+#import-list-input {
+    width: 100%;
+    height: 9rem;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    padding: 0.5rem;
+    resize: vertical;
+    margin: 0.5rem 0 0.75rem;
+    line-height: 1.6;
+    box-sizing: border-box;
+}
+#import-list-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.import-list-results {
+    font-size: 0.85rem;
+    margin-bottom: 0.75rem;
+    line-height: 1.6;
+}
+.import-list-results .result-ok {
+    color: var(--accent);
+    margin-bottom: 0.35rem;
+}
+.import-list-results .result-miss-label {
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+}
+.import-list-results .result-miss-list {
+    color: #c0392b;
+    margin: 0;
+    padding-left: 1.2em;
+    max-height: 7rem;
+    overflow-y: auto;
+}
+
 .hidden { display: none !important; }
 
 /* ── Info tab ──────────────────────────────────────────────────────────────── */
