@@ -850,6 +850,23 @@ main {
     color: var(--accent);
 }
 
+/* Name prompt input */
+.modal-text-input {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 0.95rem;
+    padding: 0.4rem 0.6rem;
+    margin: 0.5rem 0 0;
+    box-sizing: border-box;
+}
+.modal-text-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
 /* Key export textarea */
 #key-output {
     width: 100%;

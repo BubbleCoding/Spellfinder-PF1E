@@ -173,6 +173,13 @@ const showPreparedBtn   = document.getElementById("show-prepared-btn");
 const exportKeyBtn      = document.getElementById("export-key-btn");
 const importKeyBtn      = document.getElementById("import-key-btn");
 
+// Name prompt modal (replaces window.prompt for spellbook naming)
+const nameModal       = document.getElementById("name-modal");
+const nameModalTitle  = document.getElementById("name-modal-title");
+const nameModalInput  = document.getElementById("name-modal-input");
+const nameModalOk     = document.getElementById("name-modal-ok");
+const nameModalCancel = document.getElementById("name-modal-cancel");
+
 // Key export modal
 const keyModal   = document.getElementById("key-modal");
 const keyOutput  = document.getElementById("key-output");
@@ -261,6 +268,40 @@ async function loadFilters() {
     } catch (err) {
         console.error("Failed to load filters:", err);
     }
+}
+
+// ── Name prompt (custom modal, replaces window.prompt) ────────────────────────
+function promptName(title, defaultValue = "") {
+    return new Promise(resolve => {
+        nameModalTitle.textContent = title;
+        nameModalInput.value = defaultValue;
+        nameModal.classList.add("open");
+        setTimeout(() => { nameModalInput.focus(); nameModalInput.select(); }, 50);
+
+        function cleanup() {
+            nameModal.classList.remove("open");
+            nameModalOk.removeEventListener("click", onOk);
+            nameModalCancel.removeEventListener("click", onCancel);
+            nameModalInput.removeEventListener("keydown", onKey);
+            nameModal.removeEventListener("click", onOverlay);
+        }
+        function onOk() {
+            const val = nameModalInput.value.trim();
+            cleanup();
+            resolve(val || null);
+        }
+        function onCancel() { cleanup(); resolve(null); }
+        function onKey(e) {
+            if (e.key === "Enter")  { e.preventDefault(); onOk(); }
+            if (e.key === "Escape") { onCancel(); }
+        }
+        function onOverlay(e) { if (e.target === nameModal) onCancel(); }
+
+        nameModalOk.addEventListener("click", onOk);
+        nameModalCancel.addEventListener("click", onCancel);
+        nameModalInput.addEventListener("keydown", onKey);
+        nameModal.addEventListener("click", onOverlay);
+    });
 }
 
 // ── Spellbook management ──────────────────────────────────────────────────────
@@ -928,7 +969,7 @@ sbSelect.addEventListener("change", () => selectSpellbook(sbSelect.value));
 
 // New spellbook
 newSbBtn.addEventListener("click", async () => {
-    const name = prompt("Spellbook name:");
+    const name = await promptName("Spellbook name");
     if (!name || !name.trim()) return;
     const newId = Date.now();
     const all = _lsGetAll();
@@ -942,10 +983,10 @@ newSbBtn.addEventListener("click", async () => {
 });
 
 // Rename spellbook
-renameSbBtn.addEventListener("click", () => {
+renameSbBtn.addEventListener("click", async () => {
     if (!currentSpellbookId) return;
     const sb = spellbooks.find(x => x.id === currentSpellbookId);
-    const name = prompt("New name:", sb ? sb.name : "");
+    const name = await promptName("New name", sb ? sb.name : "");
     if (!name || !name.trim()) return;
     const all = _lsGetAll();
     const bookEntry = all.find(x => x.id === currentSpellbookId);
@@ -1099,7 +1140,7 @@ pickerModal.addEventListener("click", (e) => {
     if (e.target === pickerModal) closePickerModal();
 });
 pickerNewBtn.addEventListener("click", async () => {
-    const name = prompt("New spellbook name:");
+    const name = await promptName("New spellbook name");
     if (!name || !name.trim()) return;
     const newId = Date.now();
     const initialSpells = _pickerSpell ? [{id: _pickerSpell.id, prepared: false}] : [];
