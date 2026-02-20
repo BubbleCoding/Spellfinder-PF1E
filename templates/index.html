@@ -41,16 +41,41 @@
                 <h2>Advanced Search</h2>
                 <p>Type any words into the search box to search across spell names, descriptions, schools, components, and more. Words are matched as prefixes, so <code>fire</code> matches <em>fireball</em>, <em>fire storm</em>, etc.</p>
 
+                <h3>Exact phrases</h3>
+                <p>Wrap multiple words in double quotes to match them as an exact phrase: <code>"wall of fire"</code> only returns spells where those three words appear together in that order. Without quotes, <code>wall fire</code> would return anything containing both words anywhere.</p>
+
+                <h3>Excluding words — <code>!</code></h3>
+                <p>Prefix any word with <code>!</code> to hide spells that contain it: <code>!fire</code> removes all results mentioning fire. You can stack exclusions and mix them with other search terms.</p>
+                <table class="info-table">
+                    <thead><tr><th>Example</th><th>Result</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>!fire</code></td><td>All spells that don't mention fire</td></tr>
+                        <tr><td><code>evocation !fire</code></td><td>Evocation spells that don't mention fire</td></tr>
+                        <tr><td><code>!fire !cold</code></td><td>Spells mentioning neither fire nor cold</td></tr>
+                        <tr><td><code>!"saving throw"</code></td><td>Spells that don't contain that exact phrase</td></tr>
+                    </tbody>
+                </table>
+                <p>This also works on <code>field:value</code> tokens — prefix with <code>!</code> to negate: <code>!class:cleric</code>, <code>!descriptor:fire</code>, <code>!school:necromancy</code>.</p>
+
                 <h3>Boolean operators</h3>
-                <p>For more control, use <code>AND</code>, <code>OR</code>, <code>NOT</code>, or <code>"quoted phrases"</code> in your query. When these are present the search is passed directly to the full-text engine with no prefix expansion.</p>
+                <p>For advanced full-text queries, use <code>AND</code>, <code>OR</code>, or <code>NOT</code> between words. When these operators are present the query is passed directly to the full-text engine with no prefix expansion.</p>
 
                 <h3>Field:value tokens</h3>
-                <p>You can narrow your search with <code>field:value</code> tokens anywhere in the search box. Multiple tokens are combined with AND.</p>
+                <p>Narrow your search with <code>field:value</code> tokens anywhere in the search box. Multiple tokens are combined with AND.</p>
                 <table class="info-table">
                     <thead><tr><th>Token</th><th>Matches</th><th>Example</th></tr></thead>
                     <tbody>
                         <tr><td><code>class:name</code></td><td>Spells on a class list</td><td><code>class:wizard AND class:bard</code></td></tr>
-                        <tr><td><code>level:n</code></td><td>Spells at a specific level</td><td><code>class:paladin level:4</code></td></tr>
+                        <tr>
+                            <td><code>level:n</code></td>
+                            <td>Spells at a specific level, a range, or a comparison</td>
+                            <td>
+                                <code>level:4</code> — exact<br>
+                                <code>level:1-3</code> — levels 1 through 3<br>
+                                <code>level:&lt;=2</code> — level 2 or lower<br>
+                                <code>level:&gt;=5</code> — level 5 or higher
+                            </td>
+                        </tr>
                         <tr><td><code>school:name</code></td><td>Exact school match</td><td><code>school:transmutation</code></td></tr>
                         <tr><td><code>subschool:name</code></td><td>Exact subschool match</td><td><code>subschool:polymorph</code></td></tr>
                         <tr><td><code>descriptor:name</code></td><td>Descriptor flag</td><td><code>descriptor:fire</code></td></tr>
@@ -105,7 +130,7 @@
 
         <div id="search-section">
         <div class="search-bar">
-            <input type="text" id="search-input" placeholder="Search spells... (e.g. fireball, class:wizard AND class:paladin, domain:fire, deity:asmodeus)" autofocus>
+            <input type="text" id="search-input" placeholder='Search spells... (e.g. fireball, "wall of fire", !cold, class:wizard, level:1-3, domain:fire)' autofocus>
         </div>
 
         <div class="filters">

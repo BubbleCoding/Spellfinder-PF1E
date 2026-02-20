@@ -156,10 +156,11 @@ def parse_advanced_query(q):
         class:wizard class:paladin      → OR  (either class)
         class:wizard AND class:paladin  → AND (both classes required)
 
-    Returns (fts_text: str, field_clauses: list of dicts)
+    Returns (fts_text: str, field_clauses: list of dicts, negated_words: list of str)
     Each dict: {'field': str, 'value': str, 'op': 'AND'|'OR', 'negate': bool}
     'op' describes how this clause joins with the previous clause of the same field.
     Prefix a token with ! to negate it: !class:cleric excludes cleric spells.
+    Plain !word tokens (no colon) exclude any spell containing that word in FTS.
     """
     try:
         tokens = shlex.split(q)
@@ -168,6 +169,7 @@ def parse_advanced_query(q):
 
     fts_parts = []
     field_clauses = []
+    negated_words = []  # plain !word exclusions applied via SQL NOT IN
     pending_op = "OR"
 
     for tok in tokens:
@@ -193,6 +195,14 @@ def parse_advanced_query(q):
                 pending_op = "OR"
                 continue
 
+        # Plain !word — exclude spells containing this word/phrase in FTS.
+        # shlex strips quotes, so a multi-word tok like "!climb speed" means
+        # the user typed !"climb speed".
+        if tok.startswith("!") and len(tok) > 1:
+            negated_words.append(tok[1:])
+            pending_op = "OR"
+            continue
+
         # Not a recognised field:value — goes to FTS.
         # shlex strips quotes, so a multi-word token means the user typed a
         # quoted phrase (e.g. "climb speed"). Re-add quotes so FTS5 gets the
@@ -203,7 +213,37 @@ def parse_advanced_query(q):
             fts_parts.append(tok)
         pending_op = "OR"
 
-    return " ".join(fts_parts), field_clauses
+    return " ".join(fts_parts), field_clauses, negated_words
+
+
+_LEVEL_RANGE_RE = re.compile(r'^(\d+)-(\d+)$')
+_LEVEL_COMP_RE  = re.compile(r'^([<>]=?|=)(\d+)$')
+
+
+def _level_condition(value):
+    """Parse a level filter value into a (sql_fragment, params) pair.
+
+    Handles:
+      1-3    → level >= 1 AND level <= 3
+      <=2    → level <= 2   (also <, >, >=, =)
+      3      → level = 3
+    Returns (None, []) for unrecognised input.
+    """
+    v = value.strip()
+    m = _LEVEL_RANGE_RE.match(v)
+    if m:
+        lo, hi = int(m.group(1)), int(m.group(2))
+        if lo > hi:
+            lo, hi = hi, lo
+        return "level >= ? AND level <= ?", [lo, hi]
+    m = _LEVEL_COMP_RE.match(v)
+    if m:
+        op, num = m.group(1), int(m.group(2))
+        return f"level {op} ?", [num]
+    try:
+        return "level = ?", [int(v)]
+    except ValueError:
+        return None, []
 
 
 def apply_field_clauses(field_clauses, where_clauses, params):
@@ -242,26 +282,27 @@ def apply_field_clauses(field_clauses, where_clauses, params):
                 params.append(c["value"].lower())
 
         elif field == "level":
-            pos_valid = []
-            for c in positive:
-                try:
-                    pos_valid.append(int(c["value"]))
-                except ValueError:
-                    pass
-            if pos_valid:
-                ph = ",".join("?" * len(pos_valid))
-                where_clauses.append(
-                    f"s.id IN (SELECT spell_id FROM spell_classes WHERE level IN ({ph}))"
-                )
-                params.extend(pos_valid)
-            for c in negative:
-                try:
+            # Positive clauses are OR-combined in a single subquery.
+            if positive:
+                parts, subparams = [], []
+                for c in positive:
+                    cond, cp = _level_condition(c["value"])
+                    if cond:
+                        parts.append(f"({cond})")
+                        subparams.extend(cp)
+                if parts:
+                    combined = " OR ".join(parts)
                     where_clauses.append(
-                        "s.id NOT IN (SELECT spell_id FROM spell_classes WHERE level = ?)"
+                        f"s.id IN (SELECT spell_id FROM spell_classes WHERE {combined})"
                     )
-                    params.append(int(c["value"]))
-                except ValueError:
-                    pass
+                    params.extend(subparams)
+            for c in negative:
+                cond, cp = _level_condition(c["value"])
+                if cond:
+                    where_clauses.append(
+                        f"s.id NOT IN (SELECT spell_id FROM spell_classes WHERE {cond})"
+                    )
+                    params.extend(cp)
 
         elif field == "category":
             if positive:
@@ -400,7 +441,7 @@ def api_filters():
 def api_spells():
     db = get_db()
     q_raw = request.args.get("q", "").strip()
-    fts_text, field_clauses = parse_advanced_query(q_raw)
+    fts_text, field_clauses, negated_words = parse_advanced_query(q_raw)
     classes = [c.strip().lower() for c in request.args.getlist("class") if c.strip()]
     schools = [s.strip().lower() for s in request.args.getlist("school") if s.strip()]
     levels = [int(l) for l in request.args.getlist("level") if l.strip().lstrip("-").isdigit()]
@@ -426,6 +467,14 @@ def api_spells():
         joins.append("JOIN spells_fts ON spells_fts.rowid = s.id")
         where_clauses.append("spells_fts MATCH ?")
         params.append(fts_query)
+
+    # !word exclusions — spells must NOT contain these words/phrases in FTS
+    for word in negated_words:
+        fts_val = f'"{word}"' if ' ' in word else f'{word}*'
+        where_clauses.append(
+            "s.id NOT IN (SELECT rowid FROM spells_fts WHERE spells_fts MATCH ?)"
+        )
+        params.append(fts_val)
 
     # Field:value clauses parsed from the query string
     apply_field_clauses(field_clauses, where_clauses, params)
