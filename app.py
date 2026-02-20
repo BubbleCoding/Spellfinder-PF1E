@@ -193,8 +193,14 @@ def parse_advanced_query(q):
                 pending_op = "OR"
                 continue
 
-        # Not a recognised field:value — goes to FTS
-        fts_parts.append(tok)
+        # Not a recognised field:value — goes to FTS.
+        # shlex strips quotes, so a multi-word token means the user typed a
+        # quoted phrase (e.g. "climb speed"). Re-add quotes so FTS5 gets the
+        # phrase query it needs ("climb speed" instead of climb* speed*).
+        if ' ' in tok:
+            fts_parts.append(f'"{tok}"')
+        else:
+            fts_parts.append(tok)
         pending_op = "OR"
 
     return " ".join(fts_parts), field_clauses
