@@ -156,6 +156,7 @@ const sortSelect    = document.getElementById("sort-select");
 const perPageSelect = document.getElementById("per-page-select");
 const clearBtn      = document.getElementById("clear-filters");
 const favoritesBtn  = document.getElementById("favorites-btn");
+const explosiveBtn  = document.getElementById("explosive-btn");
 const resultsCount  = document.getElementById("results-count");
 const resultsList   = document.getElementById("results-list");
 const paginationEl  = document.getElementById("pagination");
@@ -224,9 +225,10 @@ const pickerCloseBtn  = document.getElementById("picker-close-btn");
 let currentPage = 1;
 let debounceTimer = null;
 let showFavoritesOnly = false;
+let showExplosiveOnly = false;
 
 // Spellbook state
-let currentTab = "all";           // "all" | "spellbook" | "info"
+let currentTab = "all";           // "all" | "spellbook" | "info" | "feats"
 let currentSpellbookId = null;
 let spellbooks = [];              // [{id, name, spell_count}]
 let spellbookSpellIds = new Set();// spell_ids in active book
@@ -738,6 +740,9 @@ async function searchSpells(page = 1) {
     if (showFavoritesOnly) {
         [...favorites].forEach(id => params.append("id", String(id)));
     }
+    if (showExplosiveOnly) {
+        params.set("explosive", "1");
+    }
     if (currentTab === "spellbook" && currentSpellbookId) {
         const sbData = _lsGetBook(currentSpellbookId);
         const spellsToShow = (showPreparedOnly && sbData)
@@ -780,9 +785,11 @@ function updateURL(page) {
         ms.getSelected().forEach(val => state.append(ms.paramName, val));
     });
     if (showFavoritesOnly) state.set("favorites", "1");
+    if (showExplosiveOnly) state.set("explosive", "1");
     if (page > 1) state.set("page", String(page));
     if (currentTab === "spellbook") state.set("tab", "spellbook");
     if (currentTab === "info") state.set("tab", "info");
+    if (currentTab === "feats") state.set("tab", "feats");
     if (currentSpellbookId) state.set("spellbook", String(currentSpellbookId));
     history.replaceState(null, "", window.location.pathname + (state.toString() ? "?" + state.toString() : ""));
 }
@@ -1017,12 +1024,45 @@ function switchTab(tab) {
     currentTab = tab;
     tabButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tab));
 
+    const featSection   = document.getElementById("feats-section");
+    const macrosSection = document.getElementById("macros-section");
+
+    if (tab === "feats") {
+        infoPanel.classList.add("hidden");
+        searchSection.classList.add("hidden");
+        spellbookControls.classList.add("hidden");
+        summaryBar.classList.add("hidden");
+        favoritesBtn.classList.add("hidden");
+        explosiveBtn.classList.add("hidden");
+        featSection.classList.remove("hidden");
+        macrosSection.classList.add("hidden");
+        if (typeof onFeatTabActivated === "function") onFeatTabActivated();
+        return;
+    }
+
+    if (tab === "macros") {
+        infoPanel.classList.add("hidden");
+        searchSection.classList.add("hidden");
+        spellbookControls.classList.add("hidden");
+        summaryBar.classList.add("hidden");
+        favoritesBtn.classList.add("hidden");
+        explosiveBtn.classList.add("hidden");
+        featSection.classList.add("hidden");
+        macrosSection.classList.remove("hidden");
+        if (typeof window.onMacroTabActivated === "function") window.onMacroTabActivated();
+        return;
+    }
+
+    featSection.classList.add("hidden");
+    macrosSection.classList.add("hidden");
+
     if (tab === "info") {
         infoPanel.classList.remove("hidden");
         searchSection.classList.add("hidden");
         spellbookControls.classList.add("hidden");
         summaryBar.classList.add("hidden");
         favoritesBtn.classList.add("hidden");
+        explosiveBtn.classList.add("hidden");
         updateURL(1);
         return;
     }
@@ -1034,12 +1074,14 @@ function switchTab(tab) {
         spellbookControls.classList.remove("hidden");
         if (currentSpellbookId) summaryBar.classList.remove("hidden");
         favoritesBtn.classList.add("hidden");
+        explosiveBtn.classList.add("hidden");
     } else {
         spellbookControls.classList.add("hidden");
         summaryBar.classList.add("hidden");
         showPreparedOnly = false;
         showPreparedBtn.classList.remove("active");
         favoritesBtn.classList.remove("hidden");
+        explosiveBtn.classList.remove("hidden");
     }
     searchSpells(1);
 }
@@ -1064,12 +1106,20 @@ clearBtn.addEventListener("click", () => {
     allMultiSelects.forEach(ms => ms.reset());
     showFavoritesOnly = false;
     favoritesBtn.classList.remove("active");
+    showExplosiveOnly = false;
+    explosiveBtn.classList.remove("active");
     searchSpells(1);
 });
 
 favoritesBtn.addEventListener("click", () => {
     showFavoritesOnly = !showFavoritesOnly;
     favoritesBtn.classList.toggle("active", showFavoritesOnly);
+    searchSpells(1);
+});
+
+explosiveBtn.addEventListener("click", () => {
+    showExplosiveOnly = !showExplosiveOnly;
+    explosiveBtn.classList.toggle("active", showExplosiveOnly);
     searchSpells(1);
 });
 
@@ -1394,13 +1444,42 @@ async function restoreFromURL() {
         favoritesBtn.classList.add("active");
     }
 
+    if (p.get("explosive") === "1") {
+        showExplosiveOnly = true;
+        explosiveBtn.classList.add("active");
+    }
+
     const tab = p.get("tab");
+    if (tab === "feats") {
+        currentTab = "feats";
+        tabButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.tab === "feats"));
+        document.getElementById("feats-section").classList.remove("hidden");
+        searchSection.classList.add("hidden");
+        infoPanel.classList.add("hidden");
+        favoritesBtn.classList.add("hidden");
+        explosiveBtn.classList.add("hidden");
+        // feats.js handles its own init
+        return;
+    }
+
+    if (tab === "macros") {
+        currentTab = "macros";
+        tabButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.tab === "macros"));
+        document.getElementById("macros-section").classList.remove("hidden");
+        searchSection.classList.add("hidden");
+        infoPanel.classList.add("hidden");
+        favoritesBtn.classList.add("hidden");
+        explosiveBtn.classList.add("hidden");
+        return;
+    }
+
     if (tab === "info") {
         currentTab = "info";
         tabButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.tab === "info"));
         infoPanel.classList.remove("hidden");
         searchSection.classList.add("hidden");
         favoritesBtn.classList.add("hidden");
+        explosiveBtn.classList.add("hidden");
         return;
     }
 
@@ -1409,6 +1488,7 @@ async function restoreFromURL() {
         tabButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.tab === "spellbook"));
         spellbookControls.classList.remove("hidden");
         favoritesBtn.classList.add("hidden");
+        explosiveBtn.classList.add("hidden");
 
         const sbId = parseInt(p.get("spellbook") || "0");
         if (sbId && spellbooks.find(sb => sb.id === sbId)) {

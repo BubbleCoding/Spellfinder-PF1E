@@ -28,6 +28,32 @@ def decode_spellbook_key(key: str) -> dict:
 
 app = Flask(__name__)
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pfinder.db")
+EXPLOSIVE_SPELLS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "final_results.json")
+
+# Set of spell IDs compatible with the Explosive Weapon feat; None if file not found.
+_explosive_spell_ids: set | None = None
+
+
+def _load_explosive_spell_ids():
+    global _explosive_spell_ids
+    if not os.path.exists(EXPLOSIVE_SPELLS_PATH):
+        _explosive_spell_ids = None
+        return
+    with open(EXPLOSIVE_SPELLS_PATH, encoding="utf-8") as f:
+        data = json.load(f)
+    names = [entry["name"] for entry in data if entry.get("name")]
+    if not names:
+        _explosive_spell_ids = set()
+        return
+    db = sqlite3.connect(DB_PATH)
+    ph = ",".join("?" * len(names))
+    rows = db.execute(
+        f"SELECT id FROM spells WHERE LOWER(name) IN ({ph})",
+        [n.lower() for n in names],
+    ).fetchall()
+    db.close()
+    _explosive_spell_ids = {r[0] for r in rows}
+    print(f"Loaded {len(_explosive_spell_ids)} explosive-weapon-compatible spells.")
 
 # Grouped LIKE filter options: param_value.lower() → (db_field, like_keyword)
 # Area options cover both the `area` and `effect` columns.
@@ -145,7 +171,7 @@ QUERY_LIKE_FIELDS = {
 QUERY_EXACT_FIELDS = {"school", "subschool"}
 
 
-def parse_advanced_query(q):
+def parse_advanced_query(q, field_map=None):
     """Split a query string into plain FTS text and structured field clauses.
 
     Tokens of the form  field:value  (e.g. class:wizard, domain:fire) are
@@ -162,6 +188,9 @@ def parse_advanced_query(q):
     Prefix a token with ! to negate it: !class:cleric excludes cleric spells.
     Plain !word tokens (no colon) exclude any spell containing that word in FTS.
     """
+    if field_map is None:
+        field_map = QUERY_FIELD_MAP
+
     try:
         tokens = shlex.split(q)
     except ValueError:
@@ -189,13 +218,13 @@ def parse_advanced_query(q):
             # Strip surrounding quotes shlex may have left on the value half
             if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
                 value = value[1:-1]
-            canonical = QUERY_FIELD_MAP.get(raw_field)
+            canonical = field_map.get(raw_field)
             if canonical:
                 field_clauses.append({"field": canonical, "value": value, "op": pending_op, "negate": negate})
                 pending_op = "OR"
                 continue
 
-        # Plain !word — exclude spells containing this word/phrase in FTS.
+        # Plain !word — exclude results containing this word/phrase in FTS.
         # shlex strips quotes, so a multi-word tok like "!climb speed" means
         # the user typed !"climb speed".
         if tok.startswith("!") and len(tok) > 1:
@@ -434,6 +463,7 @@ def api_filters():
     result["spell_resistance"] = ["Yes", "No"]
     result["area"]            = ["Line", "Cone", "Radius", "Burst", "Emanation", "Spread",
                                   "Cube", "Cylinder", "Ray", "Wall", "Fog", "Sphere", "Hole"]
+    result["has_explosive_filter"] = _explosive_spell_ids is not None
     return jsonify(result)
 
 
@@ -558,6 +588,15 @@ def api_spells():
         where_clauses.append(f"s.id IN ({_ph})")
         params.extend(_fav_ids)
 
+    # Explosive Weapon feat filter
+    if request.args.get("explosive") == "1" and _explosive_spell_ids is not None:
+        if _explosive_spell_ids:
+            _ph = ",".join("?" * len(_explosive_spell_ids))
+            where_clauses.append(f"s.id IN ({_ph})")
+            params.extend(_explosive_spell_ids)
+        else:
+            where_clauses.append("1=0")
+
     where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
     join_sql = " ".join(joins)
 
@@ -681,6 +720,291 @@ def api_spellbooks_decode():
         return jsonify({"error": "Invalid key"}), 400
 
 
+# ── Feat query field maps ──────────────────────────────────────────────────────
+
+FEAT_QUERY_FIELD_MAP = {
+    "type":          "type",
+    "source":        "source",
+    "prereq":        "prerequisites",
+    "prerequisites": "prerequisites",
+    "race":          "race_name",
+    "flag":          "flag",
+    "benefit":       "benefit",
+}
+
+# Canonical field names that do LIKE '%value%' on the feats table
+FEAT_QUERY_LIKE_FIELDS = {"type", "source", "prerequisites", "race_name", "benefit"}
+
+FEAT_FLAG_MAP = {
+    "teamwork":           "teamwork",
+    "critical":           "critical",
+    "grit":               "grit",
+    "style":              "style",
+    "performance":        "performance",
+    "racial":             "racial",
+    "companion":          "companion_familiar",
+    "companion_familiar": "companion_familiar",
+    "panache":            "panache",
+    "betrayal":           "betrayal",
+    "targeting":          "targeting",
+    "esoteric":           "esoteric",
+    "stare":              "stare",
+    "weapon_mastery":     "weapon_mastery",
+    "item_mastery":       "item_mastery",
+    "armor_mastery":      "armor_mastery",
+    "shield_mastery":     "shield_mastery",
+    "blood_hex":          "blood_hex",
+    "trick":              "trick",
+}
+
+
+def apply_feat_field_clauses(field_clauses, where_clauses, params):
+    """Translate parsed feat field clauses into WHERE conditions and params."""
+    if not field_clauses:
+        return
+
+    grouped = defaultdict(list)
+    for clause in field_clauses:
+        grouped[clause["field"]].append(clause)
+
+    for field, clauses in grouped.items():
+        positive = [c for c in clauses if not c.get("negate")]
+        negative = [c for c in clauses if c.get("negate")]
+
+        if field == "flag":
+            # value is the flag name, e.g. flag:teamwork → feats.teamwork = 1
+            if positive:
+                pos_parts = []
+                for c in positive:
+                    col = FEAT_FLAG_MAP.get(c["value"].lower())
+                    if col:
+                        pos_parts.append((f"f.{col} = 1", c["op"]))
+                if pos_parts:
+                    expr = pos_parts[0][0]
+                    for clause_expr, op in pos_parts[1:]:
+                        expr += f" {op} {clause_expr}"
+                    where_clauses.append(f"({expr})")
+            for c in negative:
+                col = FEAT_FLAG_MAP.get(c["value"].lower())
+                if col:
+                    where_clauses.append(f"(f.{col} = 0 OR f.{col} IS NULL)")
+
+        elif field in FEAT_QUERY_LIKE_FIELDS:
+            if positive:
+                parts = []
+                for c in positive:
+                    parts.append((f"LOWER(f.{field}) LIKE ?", c["op"]))
+                    params.append(f"%{c['value'].lower()}%")
+                expr = parts[0][0]
+                for clause_expr, op in parts[1:]:
+                    expr += f" {op} {clause_expr}"
+                where_clauses.append(f"({expr})")
+            for c in negative:
+                where_clauses.append(f"LOWER(f.{field}) NOT LIKE ?")
+                params.append(f"%{c['value'].lower()}%")
+
+
+FEAT_CSV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Feats - Updated 19Jan2020.csv")
+
+_FEAT_BOOL_COLS = [
+    "teamwork", "critical", "grit", "style", "performance", "racial",
+    "companion_familiar", "multiples", "panache", "betrayal", "targeting",
+    "esoteric", "stare", "weapon_mastery", "item_mastery", "armor_mastery",
+    "shield_mastery", "blood_hex", "trick",
+]
+
+
+def _ensure_feats_tables():
+    """Create feats + feats_fts tables if missing, and load from CSV if empty."""
+    db = sqlite3.connect(DB_PATH)
+    db.execute("""CREATE TABLE IF NOT EXISTS feats (
+        id INTEGER PRIMARY KEY, name TEXT NOT NULL, type TEXT,
+        description TEXT, prerequisites TEXT, prerequisite_feats TEXT,
+        benefit TEXT, normal TEXT, special TEXT, source TEXT,
+        teamwork INTEGER DEFAULT 0, critical INTEGER DEFAULT 0,
+        grit INTEGER DEFAULT 0, style INTEGER DEFAULT 0,
+        performance INTEGER DEFAULT 0, racial INTEGER DEFAULT 0,
+        companion_familiar INTEGER DEFAULT 0, race_name TEXT, note TEXT,
+        goal TEXT, completion_benefit TEXT, multiples INTEGER DEFAULT 0,
+        suggested_traits TEXT, prerequisite_skills TEXT,
+        panache INTEGER DEFAULT 0, betrayal INTEGER DEFAULT 0,
+        targeting INTEGER DEFAULT 0, esoteric INTEGER DEFAULT 0,
+        stare INTEGER DEFAULT 0, weapon_mastery INTEGER DEFAULT 0,
+        item_mastery INTEGER DEFAULT 0, armor_mastery INTEGER DEFAULT 0,
+        shield_mastery INTEGER DEFAULT 0, blood_hex INTEGER DEFAULT 0,
+        trick INTEGER DEFAULT 0
+    )""")
+    db.execute("""CREATE VIRTUAL TABLE IF NOT EXISTS feats_fts USING fts5(
+        name, description, benefit, prerequisites, prerequisite_feats,
+        content=feats, content_rowid=id
+    )""")
+    if db.execute("SELECT COUNT(*) FROM feats").fetchone()[0] == 0:
+        if os.path.exists(FEAT_CSV_PATH):
+            import csv as _csv
+            with open(FEAT_CSV_PATH, newline="", encoding="utf-8-sig") as f:
+                reader = _csv.DictReader(f)
+                rows_to_insert = []
+                for row in reader:
+                    def _b(col):
+                        v = row.get(col, "0") or "0"
+                        try: return 1 if int(v) else 0
+                        except ValueError: return 0
+                    rows_to_insert.append((
+                        row.get("id") or None,
+                        row.get("name", ""),
+                        row.get("type") or None,
+                        row.get("description") or None,
+                        row.get("prerequisites") or None,
+                        row.get("prerequisite_feats") or None,
+                        row.get("benefit") or None,
+                        row.get("normal") or None,
+                        row.get("special") or None,
+                        row.get("source") or None,
+                        _b("teamwork"), _b("critical"), _b("grit"), _b("style"),
+                        _b("performance"), _b("racial"), _b("companion_familiar"),
+                        row.get("race_name") or None,
+                        row.get("note") or None,
+                        row.get("goal") or None,
+                        row.get("completion_benefit") or None,
+                        _b("multiples"),
+                        row.get("suggested_traits") or None,
+                        row.get("prerequisite_skills") or None,
+                        _b("panache"), _b("betrayal"), _b("targeting"),
+                        _b("esoteric"), _b("stare"), _b("weapon_mastery"),
+                        _b("item_mastery"), _b("armor_mastery"), _b("shield_mastery"),
+                        _b("blood_hex"), _b("trick"),
+                    ))
+                db.executemany("""INSERT INTO feats (
+                    id, name, type, description, prerequisites, prerequisite_feats,
+                    benefit, normal, special, source,
+                    teamwork, critical, grit, style, performance, racial,
+                    companion_familiar, race_name, note, goal, completion_benefit,
+                    multiples, suggested_traits, prerequisite_skills,
+                    panache, betrayal, targeting, esoteric, stare,
+                    weapon_mastery, item_mastery, armor_mastery, shield_mastery,
+                    blood_hex, trick
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                rows_to_insert)
+                # Populate FTS
+                db.execute("""INSERT INTO feats_fts(rowid, name, description, benefit, prerequisites, prerequisite_feats)
+                    SELECT id, name, description, benefit, prerequisites, prerequisite_feats FROM feats""")
+            print(f"Loaded {len(rows_to_insert)} feats from CSV.")
+        else:
+            print(f"Feats CSV not found at {FEAT_CSV_PATH} — feats table will be empty.")
+    db.commit()
+    db.close()
+
+
+@app.route("/api/feats/filters")
+def api_feats_filters():
+    db = get_db()
+    # Distinct type tokens (comma-separated in the type column)
+    raw_types = db.execute(
+        "SELECT DISTINCT type FROM feats WHERE type IS NOT NULL AND type != ''"
+    ).fetchall()
+    type_set = set()
+    for row in raw_types:
+        for t in row[0].split(","):
+            t = t.strip()
+            if t:
+                type_set.add(t)
+    types = sorted(type_set)
+
+    sources = [
+        r[0] for r in db.execute(
+            "SELECT DISTINCT source FROM feats WHERE source IS NOT NULL AND source != '' ORDER BY source"
+        ).fetchall()
+    ]
+    return jsonify({"types": types, "sources": sources})
+
+
+@app.route("/api/feats")
+def api_feats():
+    db = get_db()
+    q_raw = request.args.get("q", "").strip()
+    fts_text, field_clauses, negated_words = parse_advanced_query(q_raw, field_map=FEAT_QUERY_FIELD_MAP)
+    type_filter = [v.strip() for v in request.args.getlist("type") if v.strip()]
+    source_filter = [v.strip() for v in request.args.getlist("source") if v.strip()]
+    sort = request.args.get("sort", "").strip()
+    page = max(1, int(request.args.get("page", 1)))
+    _pp_raw = request.args.get("per_page", "20").strip()
+    if _pp_raw.lower() == "all":
+        per_page = 10000
+        page = 1
+    else:
+        per_page = min(500, max(1, int(_pp_raw)))
+    offset = (page - 1) * per_page
+
+    params = []
+    where_clauses = []
+    joins = []
+    use_fts = False
+
+    if fts_text.strip():
+        fts_query = build_fts_query(fts_text)
+        use_fts = True
+        joins.append("JOIN feats_fts ON feats_fts.rowid = f.id")
+        where_clauses.append("feats_fts MATCH ?")
+        params.append(fts_query)
+
+    for word in negated_words:
+        fts_val = f'"{word}"' if ' ' in word else f'{word}*'
+        where_clauses.append(
+            "f.id NOT IN (SELECT rowid FROM feats_fts WHERE feats_fts MATCH ?)"
+        )
+        params.append(fts_val)
+
+    apply_feat_field_clauses(field_clauses, where_clauses, params)
+
+    if type_filter:
+        type_parts = [f"LOWER(f.type) LIKE ?" for _ in type_filter]
+        where_clauses.append("(" + " OR ".join(type_parts) + ")")
+        params.extend(f"%{v.lower()}%" for v in type_filter)
+
+    if source_filter:
+        ph = ",".join("?" * len(source_filter))
+        where_clauses.append(f"f.source IN ({ph})")
+        params.extend(source_filter)
+
+    where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+    join_sql = " ".join(joins)
+
+    count_sql = f"SELECT COUNT(DISTINCT f.id) FROM feats f {join_sql}{where_sql}"
+    total = db.execute(count_sql, params).fetchone()[0]
+
+    _sort_map = {
+        "name":      "f.name",
+        "name_desc": "f.name DESC",
+        "type":      "f.type, f.name",
+        "type_desc": "f.type DESC, f.name",
+    }
+    if sort in _sort_map:
+        order = f"ORDER BY {_sort_map[sort]}"
+    elif use_fts:
+        order = "ORDER BY feats_fts.rank"
+    else:
+        order = "ORDER BY f.name"
+
+    query_sql = f"""
+        SELECT DISTINCT f.* FROM feats f
+        {join_sql}
+        {where_sql}
+        {order}
+        LIMIT ? OFFSET ?
+    """
+    params.extend([per_page, offset])
+    rows = db.execute(query_sql, params).fetchall()
+
+    feats = [dict(row) for row in rows]
+    return jsonify({
+        "feats": feats,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "pages": (total + per_page - 1) // per_page,
+    })
+
+
 def build_fts_query(user_query: str) -> str:
     """Convert user input into an FTS5 query string.
 
@@ -703,4 +1027,6 @@ if __name__ == "__main__":
         print(f"Database not found at {DB_PATH}")
         print("Run 'python tools/init_db.py' first to create the database.")
         raise SystemExit(1)
+    _ensure_feats_tables()
+    _load_explosive_spell_ids()
     app.run(debug=True, port=5000)

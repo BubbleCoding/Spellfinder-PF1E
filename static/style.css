@@ -1053,7 +1053,397 @@ main {
     text-decoration: underline;
 }
 
+/* Feat type badge colors */
+.feat-type-combat       { background: rgba(200,110,110,0.15); color: #c86e6e; }
+.feat-type-teamwork     { background: rgba(110,200,168,0.15); color: #6ec8a8; }
+.feat-type-general      { background: rgba(138,200,110,0.15); color: #8ac86e; }
+.feat-type-metamagic    { background: rgba(168,110,200,0.15); color: #a86ec8; }
+.feat-type-item-creation { background: rgba(200,196,110,0.15); color: #c8c46e; }
+.feat-type-grit         { background: rgba(200,164,110,0.15); color: var(--accent); }
+.feat-type-style        { background: rgba(110,170,200,0.15); color: #6eaac8; }
+
+/* feat-clear-filters shares the same style as #clear-filters */
+#feat-clear-filters {
+    padding: 0.45rem 0.8rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    align-self: flex-end;
+    margin-left: auto;
+}
+
+#feat-clear-filters:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* ── Roll20 Macro Builder ─────────────────────────────────────────────────── */
+
+/* Profile management bar */
+.macro-profile-bar {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+    padding: 0.65rem 1rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+#macro-profile-select {
+    flex: 1;
+    min-width: 160px;
+    max-width: 280px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.4rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+#macro-profile-select:focus { outline: none; border-color: var(--accent); }
+
+.macro-profile-bar button {
+    padding: 0.4rem 0.75rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+.macro-profile-bar button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* Two-column layout */
+.macro-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    align-items: start;
+}
+
+/* Section card */
+.macro-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem 1.1rem;
+    margin-bottom: 1rem;
+}
+.macro-section:last-child { margin-bottom: 0; }
+
+.macro-section-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid var(--border);
+}
+
+/* Base stats grid */
+.macro-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem;
+}
+
+.macro-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.28rem;
+}
+.macro-field label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Shared input style for macro builder */
+.macro-input {
+    padding: 0.38rem 0.6rem;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 0.9rem;
+    font-family: inherit;
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+}
+.macro-input:focus { outline: none; border-color: var(--accent); }
+.macro-input.invalid { border-color: #c06060; color: #c06060; }
+
+/* Bonus list header */
+.macro-bonus-header {
+    display: grid;
+    grid-template-columns: 24px 1fr 85px 1fr 28px;
+    gap: 0.4rem;
+    padding: 0 0.15rem 0.3rem;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0.2rem;
+}
+
+/* Bonus rows — 5 cells: [checkbox] [name] [value] [applies-wrapper] [delete] */
+.macro-bonus-row {
+    display: grid;
+    grid-template-columns: 24px 1fr 85px 1fr 28px;
+    gap: 0.4rem;
+    align-items: center;
+    padding: 0.35rem 0.15rem;
+    border-bottom: 1px solid var(--border);
+}
+.macro-bonus-row:last-child { border-bottom: none; }
+
+/* Wrapper for the three Applies To checkboxes */
+.bonus-applies {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.macro-checkbox-wrap {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+}
+.macro-checkbox-wrap input[type="checkbox"] {
+    accent-color: var(--accent);
+    cursor: pointer;
+    width: 14px;
+    height: 14px;
+}
+
+.macro-check-label {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    cursor: pointer;
+    white-space: nowrap;
+}
+.macro-check-label input[type="checkbox"] {
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+/* Crit multiplier: select + optional custom number input side by side */
+.macro-crit-mult-wrap {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+}
+.macro-crit-mult-wrap #macro-crit-mult { flex: 1; }
+.macro-crit-mult-wrap #macro-crit-mult-custom { width: 62px; flex-shrink: 0; }
+
+/* Delete-confirm OK button (danger colour) */
+.macro-confirm-ok-btn {
+    border-color: #8a3030 !important;
+    color: #c06060 !important;
+}
+.macro-confirm-ok-btn:hover {
+    border-color: #c06060 !important;
+    color: #e08080 !important;
+    background: rgba(192, 96, 96, 0.1) !important;
+}
+
+/* Attack rows */
+.macro-attack-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.45rem 0.15rem;
+    border-bottom: 1px solid var(--border);
+}
+.macro-attack-row:last-child { border-bottom: none; }
+
+.attack-label {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    min-width: 56px;
+    flex-shrink: 0;
+}
+
+.macro-field-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.attack-btns {
+    display: flex;
+    gap: 0.3rem;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+/* Small action buttons (▲ ▼ Crit ✕) */
+.macro-btn-sm {
+    padding: 0.25rem 0.5rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-size: 0.78rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+.macro-btn-sm:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.macro-btn-sm:disabled { opacity: 0.32; cursor: default; }
+
+.macro-del-btn {
+    border-color: #3d2828;
+    color: #7a5050;
+}
+.macro-del-btn:hover:not(:disabled) {
+    border-color: #c06060 !important;
+    color: #c06060 !important;
+}
+
+/* Add-row buttons */
+.macro-add-btn {
+    display: block;
+    width: 100%;
+    margin-top: 0.65rem;
+    padding: 0.38rem 0.8rem;
+    background: transparent;
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+    text-align: center;
+}
+.macro-add-btn:hover { border-color: var(--accent); color: var(--accent); border-style: solid; }
+
+/* Hint text */
+.macro-hint {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    font-style: italic;
+    margin-bottom: 0.6rem;
+    line-height: 1.5;
+}
+
+/* Macro output textarea */
+.macro-output-area {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-bright);
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 0.85rem;
+    padding: 0.6rem 0.75rem;
+    resize: vertical;
+    line-height: 1.65;
+    box-sizing: border-box;
+    min-height: 7rem;
+}
+.macro-output-area:focus { outline: none; border-color: var(--accent-dim); }
+
+.macro-output-footer {
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+
+.macro-sunblade-btn {
+    padding: 0.4rem 0.85rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-right: auto;
+}
+.macro-sunblade-btn:hover {
+    border-color: #c8a46e;
+    color: #c8a46e;
+}
+.macro-sunblade-btn.active {
+    background: rgba(200, 164, 110, 0.15);
+    border-color: #c8a46e;
+    color: #f0c060;
+    text-shadow: 0 0 8px rgba(240, 192, 96, 0.5);
+}
+
+.macro-copy-btn {
+    padding: 0.4rem 1rem;
+    background: var(--accent-dim);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    color: var(--text-bright);
+    font-size: 0.88rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.macro-copy-btn:hover { background: var(--accent); color: var(--bg-dark); }
+
+/* Crit modal blocks */
+.crit-block { margin-bottom: 1rem; }
+.crit-block:last-of-type { margin-bottom: 0; }
+
+.crit-block-label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.35rem;
+}
+
+.crit-block .macro-output-area { min-height: 3rem; resize: none; }
+.crit-block .macro-btn-sm { margin-top: 0.35rem; }
+
+/* ── End Roll20 Macro Builder ─────────────────────────────────────────────── */
+
 /* Responsive */
+@media (max-width: 680px) {
+    .macro-layout { grid-template-columns: 1fr; }
+    .macro-stats-grid { grid-template-columns: 1fr; }
+    .macro-bonus-header,
+    .macro-bonus-row { grid-template-columns: 24px 1fr 75px 1fr 28px; }
+    .bonus-applies { gap: 0.35rem; }
+}
+
 @media (max-width: 600px) {
     header h1 { font-size: 1.6rem; }
     main { padding: 1rem 0.5rem 2rem; }

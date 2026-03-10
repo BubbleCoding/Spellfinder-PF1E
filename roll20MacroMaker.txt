@@ -1,0 +1,206 @@
+# Roll20 PF1e Macro Builder — Build Instructions
+
+## Overview
+
+Build a single-page web application (HTML/CSS/JS or React) that helps Pathfinder 1e players construct complex Roll20 attack macros. All data is self-contained in the app — no external sheet references. The output is a rich inline Roll20 macro string the user can copy and paste directly into Roll20.
+
+---
+
+## Aesthetic Direction
+
+This is a tool for tabletop RPG players — lean into a **dark, utilitarian fantasy-meets-terminal** aesthetic. Think dark stone/parchment tones, a monospace or semi-monospace font for values and output, sharp geometric accents in a deep red or amber. It should feel like a character sheet designed by someone who also writes code. Avoid generic SaaS aesthetics entirely.
+
+---
+
+## Tech Stack
+
+- Single HTML file preferred (HTML + CSS + JS), or React JSX if preferred
+- No backend — everything is client-side
+- localStorage for persistence
+- No external dependencies beyond a Google Font and optionally a small icon library (Lucide or similar via CDN)
+
+---
+
+## Data Model
+
+Each **Profile** stores:
+
+```json
+{
+  "id": "uuid",
+  "name": "Greatsword Fighter",
+  "baseToHit": 12,
+  "baseDamageDice": "2d6",
+  "baseDamageMod": 8,
+  "critRange": 19,
+  "critMultiplier": 2,
+  "attacks": [
+    { "id": "uuid", "iterative": 0 },
+    { "id": "uuid", "iterative": -5 },
+    { "id": "uuid", "iterative": -10 },
+    { "id": "uuid", "iterative": 0 }
+  ],
+  "bonuses": [
+    {
+      "id": "uuid",
+      "name": "Power Attack",
+      "value": "-3",
+      "appliesToHit": true,
+      "appliesToDamage": false,
+      "enabled": true
+    },
+    {
+      "id": "uuid",
+      "name": "Inspire Courage",
+      "value": "2",
+      "appliesToHit": true,
+      "appliesToDamage": true,
+      "enabled": true
+    },
+    {
+      "id": "uuid",
+      "name": "Flaming",
+      "value": "1d6",
+      "appliesToHit": false,
+      "appliesToDamage": true,
+      "enabled": true
+    }
+  ]
+}
+```
+
+All profiles are stored as an array in localStorage under the key `roll20_profiles`. The active profile ID is stored under `roll20_active_profile`.
+
+---
+
+## Profile Management (top of page)
+
+- Dropdown or tab strip to switch between profiles
+- Button: **New Profile** — creates a blank profile, prompts for a name
+- Button: **Rename** — inline rename of active profile
+- Button: **Delete** — deletes active profile (with confirmation)
+- Button: **Export** — encodes the active profile as a base64 string (JSON → btoa), displays it in a modal/popup for copying
+- Button: **Import** — opens a text input where the user pastes a base64 string, decodes it, adds it as a new profile
+
+The base64 hash is a full round-trip of the profile JSON. Label it clearly as a "share code" or "backup code".
+
+---
+
+## Base Stats Section
+
+Fields:
+- **Base To-Hit Modifier** — number input (can be negative)
+- **Base Damage Dice** — text input, optional (e.g. `2d6`, `1d8`). Leave blank to omit from damage roll.
+- **Base Damage Modifier** — number input, optional (e.g. STR mod). Leave blank or 0 to omit.
+- **Crit Range** — number input. Represents the *lowest* number that threatens a crit. Default `20`. So 19-20 = enter `19`, 15-20 = enter `15`.
+- **Crit Multiplier** — dropdown: x2, x3, x4
+
+---
+
+## Bonus List Section
+
+A dynamic list of bonus entries. Each row contains:
+- **Enabled checkbox** — toggles inclusion in macro output without deleting the entry
+- **Name** — text input (e.g. "Power Attack", "Haste", "Bless")
+- **Value** — text input — accepts either a flat integer (positive or negative, e.g. `2`, `-3`) or a dice expression (e.g. `1d6`, `2d4`)
+- **Applies to:** — two checkboxes side by side: `To-Hit` and `Damage`
+- **Delete button** — removes the row
+
+Button at the bottom: **+ Add Bonus**
+
+Validation: warn the user if Value is not a valid integer or dice expression (regex: `/^-?\d+$|^\d+d\d+$/`).
+
+---
+
+## Attack List Section
+
+A dynamic list of attacks. Each row contains:
+- **Label** — auto-generated: "Attack 1", "Attack 2", etc.
+- **Iterative Penalty** — number input (e.g. `0`, `-5`, `-10`, `-15`). Label it clearly. Default `0`.
+- **Crit Button** — generates a crit macro for this specific attack (see Crit Workflow below)
+- **Delete button** — removes the row
+
+Button at the bottom: **+ Add Attack**
+
+Rows can be reordered (drag handles, or up/down buttons).
+
+---
+
+## Macro Output Section
+
+A read-only text area at the bottom (or a prominent panel) that live-updates as the user changes any input.
+
+### Output Format
+
+Generate one line per attack, all in one block:
+
+```
+Attack 1: [[1d20cs>19+12+2-3]] → [[2d6+8+2+1d6]]
+Attack 2: [[1d20cs>19+7+2-3]] → [[2d6+8+2+1d6]]
+Attack 3: [[1d20cs>19+2+2-3]] → [[2d6+8+2+1d6]]
+Attack 4 (Haste): [[1d20cs>19+12+2-3]] → [[2d6+8+2+1d6]]
+```
+
+**To-hit roll construction per attack:**
+```
+1d20cs>CRITRANGE + BASEtohit + ITERATIVE + [all enabled to-hit bonuses]
+```
+
+**Damage roll construction (same for all attacks):**
+```
+DAMAGEDICE + DAMAGEMOD + [all enabled damage bonuses]
+```
+
+If base damage dice is blank, omit it. If base damage mod is 0 or blank, omit it. Omit `+0` terms. Handle signs correctly (e.g. `-3` should appear as `-3` not `+-3`).
+
+**Iterative label:** If iterative is 0, label it as the attack number. If non-zero, include the penalty in the label: `Attack 2 (-5):`.
+
+**Copy button** — copies the full output block to clipboard. Show a brief "Copied!" confirmation.
+
+---
+
+## Crit Workflow
+
+Each attack row has a **Crit** button. Clicking it opens a modal or inline panel showing two copyable macro blocks:
+
+### 1. Confirmation Roll
+Re-roll to-hit to confirm the crit:
+```
+Crit Confirm (Attack 1): [[1d20cs>19+12+2-3]]
+```
+Identical to-hit roll as the original attack.
+
+### 2. Extra Damage Roll
+Roll additional damage equal to `(multiplier - 1)` extra damage rolls:
+- x2 crit = 1 extra damage roll
+- x3 crit = 2 extra damage rolls
+- x4 crit = 3 extra damage rolls
+
+Each extra roll is the same as the base damage roll.
+
+```
+Crit Damage (Attack 1 ×2): [[2d6+8+2+1d6]]
+```
+
+For x3 it would be:
+```
+Crit Damage (Attack 1 ×3): [[2d6+8+2+1d6]] + [[2d6+8+2+1d6]]
+```
+
+Both blocks have their own **Copy** button.
+
+---
+
+## UX Details
+
+- All changes update the macro output in real time (no save/generate button needed)
+- Profiles auto-save to localStorage on every change
+- Empty/invalid fields degrade gracefully — skip them in output rather than breaking
+- On first load with no localStorage data, create a default empty profile named "My Character"
+- Mobile-friendly layout is a nice-to-have but not required
+
+---
+
+## File Delivery
+
+Deliver as a single self-contained file. If React, a single `.jsx`. If plain, a single `.html` with embedded CSS and JS. No build step required — should open directly in a browser.

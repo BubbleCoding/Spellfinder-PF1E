@@ -1,0 +1,835 @@
+[
+  {
+    "name": "Alluring Light",
+    "level": "bard 1, witch 1",
+    "area_entry": "30-ft.-radius emanation centered on you",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Arbitrament",
+    "level": "cleric/oracle 7, inquisitor 6",
+    "area_entry": "non-neutral creatures in a 40-ft.-radius spread centered on you",
+    "duration": "instantaneous",
+    "qualification_reason": "Has a defined area of effect and duration is instantaneous."
+  },
+  {
+    "name": "Archon's Trumpet",
+    "level": "bard 5, cleric/oracle 7, paladin 4, sorcerer/wizard 7",
+    "area_entry": "cone-shaped burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Ardor's Onslaught",
+    "level": "cleric/oracle 4, inquisitor 4",
+    "area_entry": "20-ft.-radius burst",
+    "duration": "instantaneous or 1d6 rounds; see text",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Arrow Eruption",
+    "level": "ranger 2, sorcerer/wizard 2",
+    "area_entry": "30-ft.-radius burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Banshee Blast",
+    "level": "sorcerer/wizard 6, witch 6, spiritualist 6",
+    "area_entry": "cone-shaped burst",
+    "duration": "instantaneous and 1 round/level (see text)",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Blasphemy",
+    "level": "cleric/oracle 7, inquisitor 6",
+    "area_entry": "nonevil creatures in a 40-ft.-radius spread centered on you",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Blaze of Glory",
+    "level": "paladin 4",
+    "area_entry": "30-ft.-radius burst centered on you",
+    "duration": "instantaneous and 1 round/level; see text",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Blistering Invective",
+    "level": "alchemist 2, bard 2, inquisitor 2, mesmerist 2",
+    "area_entry": "30-ft. radius",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Break, Greater",
+    "level": "bloodrager 4, occultist 6, psychic 6, sorcerer/wizard 6",
+    "area_entry": "all Medium or smaller objects in a 30-ft. burst centered on you",
+    "duration": "instantaneous",
+    "qualification_reason": "Has a defined area of effect and duration is instantaneous."
+  },
+  {
+    "name": "Burn Corruption",
+    "level": "bloodrager 4, magus 5, sorcerer/wizard 5",
+    "area_entry": "10-ft. cube/level (S)",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Burning Hands",
+    "level": "sorcerer/wizard 1, witch 1, magus 1, bloodrager 1, shaman 1, occultist 1",
+    "area_entry": "cone-shaped burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Burst Of Force",
+    "level": "psychic 5, sorcerer/wizard 5",
+    "area_entry": "20-ft.-radius burst centered on you",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Burst Of Radiance",
+    "level": "cleric/oracle 2, druid 2, sorcerer/wizard 2",
+    "area_entry": "10-ft.-radius burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Burst of Nettles",
+    "level": "druid 3",
+    "area_entry": "10-ft.-radius burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Carve Passage",
+    "level": "arcanist 5, druid 5, hunter 5, sorcerer 5, wizard 5 (Kobold)",
+    "area_entry": "dirt or loose rock in one 5-ft. cube/level",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Caustic Eruption",
+    "level": "sorcerer/wizard 7",
+    "area_entry": "30-ft.-radius burst",
+    "duration": "instantaneous and 2 rounds; see text",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Chaos Hammer",
+    "level": "cleric/oracle 4, inquisitor 4",
+    "area_entry": "20-ft.-radius burst",
+    "duration": "instantaneous (1d6 rounds); see text",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Chord Of Shards",
+    "level": "bard 1",
+    "area_entry": "cone-shaped burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Circle Of Death",
+    "level": "sorcerer/wizard 6, inquisitor 6, spiritualist 6",
+    "area_entry": "several living creatures within a 40-ft.-radius burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Cold Ice Strike",
+    "level": "cleric/oracle 6, sorcerer/wizard 6, occultist 6",
+    "area_entry": "30-ft. line",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Color Spray",
+    "level": "sorcerer/wizard 1, magus 1, bloodrager 1, psychic 1, mesmerist 1",
+    "area_entry": "cone-shaped burst",
+    "duration": "instantaneous; see text",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Cone of Cold",
+    "level": "sorcerer/wizard 5, witch 6, magus 5, shaman 6, occultist 5",
+    "area_entry": "cone-shaped burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Conjure Deadfall",
+    "level": "magus 5, sorcerer/wizard 4",
+    "area_entry": "see text",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Controlled Fireball",
+    "level": "bloodrager 4, magus 4, occultist 4, sorcerer/wizard 4",
+    "area_entry": "20-foot-radius spread",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Damnation",
+    "level": "cleric/oracle 3, inquisitor 3, paladin 3",
+    "area_entry": "30-ft.-radius burst centered on you",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Damnation Stride",
+    "level": "sorcerer/wizard 5, summoner/unchained summoner 4, witch 5",
+    "area_entry": "creatures within a 10-foot-radius burst (burst of flame) (see text)",
+    "duration": "instantaneous",
+    "qualification_reason": "Affects a defined area (burst) and has an instantaneous duration."
+  },
+  {
+    "name": "Dark-Light",
+    "level": "cleric/oracle 3, druid 3, sorcerer/wizard 3",
+    "area_entry": "20-ft.-radius burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Defoliate",
+    "level": "druid 2, ranger 1, sorcerer/wizard 2",
+    "area_entry": "see text",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Detect Poison",
+    "level": "cleric/oracle 0, druid 0, paladin 1, ranger 1, sorcerer/wizard 0, shaman 0, occultist 0, psychic 0, mesmerist 0, inquisitor 0",
+    "area_entry": "one creature, one object, or a 5-ft. cube",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Detect Psychic Significance",
+    "level": "medium 0, mesmerist 0, occultist 0, psychic 0, spiritualist 0",
+    "area_entry": "40-ft.-radius burst, centered on you",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Diagnose Disease",
+    "level": "cleric/oracle 1, druid 1, paladin 1, ranger 1, witch 1, occultist 1, psychic 1, mesmerist 1",
+    "area_entry": "one creature, one object, or a 5-ft. cube",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Diamond Spray",
+    "level": "arcanist 3, sorcerer 3, wizard 3",
+    "area_entry": "cone-shaped burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Dictum",
+    "level": "cleric/oracle 7, inquisitor 6",
+    "area_entry": "nonlawful creatures in a 40-ft.-radius spread centered on you",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Diminish Plants",
+    "level": "druid 3, ranger 3",
+    "area_entry": "see text",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Dirge Of The Victorious Knights",
+    "level": "bard 6",
+    "area_entry": "120-ft. line, 10 ft. wide",
+    "duration": "instantaneous",
+    "qualification_reason": "Affects a defined area (line) and has an instantaneous duration."
+  },
+  {
+    "name": "Discharge, Greater",
+    "level": "bard 6, cleric/oracle 6, magus 6, sorcerer/wizard 6, witch 6",
+    "area_entry": "one creature or technological object, or a 20-ft.-radius burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Discordant Blast",
+    "level": "bard 4",
+    "area_entry": "see text",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Dispel Magic",
+    "level": "bard 3, cleric/oracle 3, druid 4, paladin 3, sorcerer/wizard 3, summoner/unchained summoner 3, witch 3, inquisitor 3, antipaladin 3, magus 3, shaman 3, occultist 3, psychic 3, mesmerist 3, spiritualist 3, medium 3",
+    "area_entry": "one spellcaster, creature, or object",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Dispel Magic, Greater",
+    "level": "bard 5, cleric/oracle 6, druid 6, sorcerer/wizard 6, witch 6, inquisitor 6, summoner/unchained summoner 5, magus 6, shaman 6, occultist 5, psychic 6, spiritualist 6",
+    "area_entry": "20-ft.-radius burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Dragon's Breath",
+    "level": "alchemist 4, sorcerer/wizard 4, bloodrager 4",
+    "area_entry": "cone-shaped burst or line",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Dungeonsight",
+    "level": "bard 4, cleric/oracle 5, inquisitor 4, sorcerer/wizard 5",
+    "area_entry": "60-ft.-radius emanation",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Dust Of Twilight",
+    "level": "bard 2, sorcerer/wizard 2, bloodrager 2",
+    "area_entry": "creatures and objects in a 10-ft. spread",
+    "duration": "instantaneous",
+    "qualification_reason": "Affects a defined area (spread) and has an instantaneous duration."
+  },
+  {
+    "name": "Earth Tremor",
+    "level": "bloodrager 3, druid 3, magus 3, shaman 3, sorcerer/wizard 3, witch 3",
+    "area_entry": "30-ft. line, 20-ft. cone-shaped spread, or 10-ft.-radius spread (see text)",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Expeditious Excavation",
+    "level": "druid 1, sorcerer/wizard 1",
+    "area_entry": "dirt in a 5-ft. cube",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Expend",
+    "level": "sorcerer/wizard 7",
+    "area_entry": "20-ft.-radius burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Explode Head",
+    "level": "magus 6, psychic 5, sorcerer/wizard 6",
+    "area_entry": "10-ft. radius around it",
+    "duration": "instantaneous",
+    "qualification_reason": "Affects a defined area (10-ft. radius) and has an instantaneous duration."
+  },
+  {
+    "name": "Explosion Of Rot",
+    "level": "druid 4",
+    "area_entry": "10-ft.-radius burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Fire Snake",
+    "level": "druid 5, sorcerer/wizard 5, magus 5, occultist 5",
+    "area_entry": "see text",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Fire Storm",
+    "level": "cleric/oracle 8, druid 7, shaman 8",
+    "area_entry": "two 10-ft. cubes per level (S)",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Fireball",
+    "level": "sorcerer/wizard 3, magus 3, bloodrager 3, occultist 3",
+    "area_entry": "20-ft.-radius spread",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Firefall",
+    "level": "sorcerer/wizard 4, magus 4, bloodrager 4",
+    "area_entry": "up to a 20-foot cube",
+    "duration": "instantaneous",
+    "qualification_reason": "Affects a defined area (20-foot cube) and has an instantaneous duration."
+  },
+  {
+    "name": "Flame Strike",
+    "level": "cleric/oracle 5, druid 4, inquisitor 5, shaman 5",
+    "area_entry": "cylinder (10-ft. radius, 40-ft. high)",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Flare Burst",
+    "level": "bard 1, druid 1, sorcerer/wizard 1, magus 1, bloodrager 1, psychic 1",
+    "area_entry": "10-ft.-radius burst of light",
+    "duration": "instantaneous",
+    "qualification_reason": "Affects a defined area (10-ft. radius burst) and has an instantaneous duration."
+  },
+  {
+    "name": "Flash Flood",
+    "level": "arcanist 6, druid 6, hunter 6, shaman 6, sorcerer 6, wizard 6",
+    "area_entry": "cone-shaped burst",
+    "duration": "instantaneous and 1 round per level; see text",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Flurry Of Snowballs",
+    "level": "druid 2, magus 2, sorcerer/wizard 2, witch 2",
+    "area_entry": "cone-shaped burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Hallow",
+    "level": "cleric/oracle 5, druid 5, inquisitor 5",
+    "area_entry": "40-ft. radius emanating from the touched point",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Hammer Of Mending",
+    "level": "cleric/oracle 6, sorcerer/wizard 5, summoner/unchained summoner 5",
+    "area_entry": "30-ft.-radius burst centered on you",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Healing Flames",
+    "level": "cleric/oracle 4, inquisitor 4, paladin 4",
+    "area_entry": "10-ft.-radius burst, centered on you",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Holy Smite",
+    "level": "cleric/oracle 4, inquisitor 4",
+    "area_entry": "20-ft.-radius burst",
+    "duration": "instantaneous (1 round); see text",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Holy Whisper",
+    "level": "paladin 3",
+    "area_entry": "cone-shaped burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Holy Word",
+    "level": "cleric/oracle 7, inquisitor 6",
+    "area_entry": "nongood creatures in a 40-ft.-radius spread centered on you",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Horrid Wilting",
+    "level": "sorcerer/wizard 8, witch 8, shaman 8",
+    "area_entry": "within 30 ft.",
+    "duration": "instantaneous",
+    "qualification_reason": "Affects a defined area (30 ft.) and has an instantaneous duration."
+  },
+  {
+    "name": "Hydraulic Torrent",
+    "level": "druid 3, sorcerer/wizard 3, magus 3, bloodrager 3",
+    "area_entry": "60-ft. line",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Ice Slick",
+    "level": "druid 2, magus 2, ranger 2, sorcerer/wizard 2, witch 2",
+    "area_entry": "5-ft.-radius burst",
+    "duration": "instantaneous (see text)",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Joyful Rapture",
+    "level": "bard 5, cleric/oracle 6, sorcerer/wizard 7, psychic 6, mesmerist 5",
+    "area_entry": "all allies and opponents within a 60-ft.-radius burst centered on you",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Judgment Light",
+    "level": "inquisitor 4",
+    "area_entry": "30-ft.-radius burst",
+    "duration": "instantaneous, see text",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Life Blast",
+    "level": "druid 4, ranger 3, shaman 4",
+    "area_entry": "150-ft. line",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Lightning Bolt",
+    "level": "sorcerer/wizard 3, witch 3, magus 3, bloodrager 3, occultist 3",
+    "area_entry": "120-ft. line",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Massacre",
+    "level": "cleric/oracle 9, psychic 9, shaman 9, sorcerer/wizard 9, witch 9",
+    "area_entry": "60-ft. line",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Meteor Swarm",
+    "level": "sorcerer/wizard 9",
+    "area_entry": "four 40-ft.-radius spreads, see text",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Miasmal Dread",
+    "level": "antipaladin 2, bard 2, bloodrager 2, inquisitor 3, mesmerist 3",
+    "area_entry": "cone-shaped burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Move Earth",
+    "level": "druid 6, sorcerer/wizard 6",
+    "area_entry": "dirt in an area up to 750 ft. square and up to 10 ft. deep (S)",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Obsidian Flow",
+    "level": "druid 4, sorcerer/wizard 4, summoner 3, unchained summoner 4",
+    "area_entry": "20-ft.-radius burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Order's Wrath",
+    "level": "cleric/oracle 4, inquisitor 4",
+    "area_entry": "nonlawful creatures within a burst that fills a 30-ft. cube",
+    "duration": "instantaneous (1 round); see text",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Outbreak",
+    "level": "antipaladin 2, bloodrager 3, cleric/oracle 2, druid 2, sorcerer/wizard 3",
+    "area_entry": "20-ft. burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Peacemaker's Parley",
+    "level": "cleric 2, oracle 2, warpriest 2 (Grundinnar)",
+    "area_entry": "creatures in a 20-ft.-radius spread",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Pellet Blast",
+    "level": "magus 4, sorcerer/wizard 3, summoner/unchained summoner 3, bloodrager 4, psychic 3",
+    "area_entry": "cone-shaped burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Pinecone Bomb",
+    "level": "druid 2, hunter 2, ranger 3, shaman 2, witch 2",
+    "area_entry": "10-ft.-radius spread",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Plant Growth",
+    "level": "druid 3, ranger 3",
+    "area_entry": "see text",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Poison Breath",
+    "level": "cleric/oracle 7, druid 6, witch 7",
+    "area_entry": "cone-shaped burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Positive Pulse",
+    "level": "cleric/oracle 1, inquisitor 1, paladin 1, shaman 1, sorcerer/wizard 1, spiritualist 1, summoner 1, witch 1",
+    "area_entry": "5-ft.-radius burst",
+    "duration": "instantaneous plus 1 round (see text)",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Positive Pulse, Greater",
+    "level": "cleric/oracle 4, inquisitor 4, paladin 3, shaman 4, sorcerer/wizard 4, spiritualist 4, summoner 3, witch 4",
+    "area_entry": "15-ft.-radius burst",
+    "duration": "instantaneous plus 1 round (see text)",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Prismatic Spray",
+    "level": "sorcerer/wizard 7",
+    "area_entry": "cone-shaped burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Quench",
+    "level": "druid 3",
+    "area_entry": "one 20-ft. cube/level (S)",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Rebuke",
+    "level": "inquisitor 4",
+    "area_entry": "20-ft.-radius burst centered on you",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Reinvigorating Wind",
+    "level": "bard 2, druid 3, shaman 2, witch 3",
+    "area_entry": "cone-shaped burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Reviving Finale",
+    "level": "bard 3",
+    "area_entry": "a 20-ft.-radius burst centered on you",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Rope Tornado",
+    "level": "arcanist 4, druid 4, hunter 4, magus 4, occultist 4, shaman 4, sorcerer 4, witch 4, wizard 4",
+    "area_entry": "120 ft. line",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Rovagug's Fury",
+    "level": "adept 2, cleric/oracle 2, inquisitor 2, sorcerer/wizard 2, witch 2",
+    "area_entry": "cone-shaped burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Scourge of the Horsemen",
+    "level": "cleric/oracle 9, sorcerer/wizard 9",
+    "area_entry": "30-ft. burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Screech",
+    "level": "witch 3",
+    "area_entry": "30-ft.-radius spread centered on you",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Shatter",
+    "level": "bard 2, cleric/oracle 2, sorcerer/wizard 2, magus 2, bloodrager 2, occultist 2, psychic 2",
+    "area_entry": "5-ft.-radius spread; or one solid object or one crystalline creature",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Sheet Lightning",
+    "level": "druid 3, sorcerer/wizard 3",
+    "area_entry": "20-ft.-radius spread",
+    "duration": "instantaneous",
+    "qualification_reason": "Has a defined area of effect and duration is instantaneous."
+  },
+  {
+    "name": "Shout",
+    "level": "bard 4, sorcerer/wizard 4, magus 4, bloodrager 4, occultist 4, psychic 4",
+    "area_entry": "cone-shaped burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Shout, Greater",
+    "level": "bard 6, sorcerer/wizard 8, psychic 8",
+    "area_entry": "cone-shaped burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Siege Scatter",
+    "level": "druid 5, ranger 4, shaman 5",
+    "area_entry": "50-ft.-radius spread",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Sift",
+    "level": "bard 0, inquisitor 0, occultist 0, psychic 0, medium 0",
+    "area_entry": "one 10-ft. cube",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Sign Of Wrath",
+    "level": "cleric/oracle 6, sorcerer/wizard 6",
+    "area_entry": "25-ft.-radius burst centered on you",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Silver Darts",
+    "level": "bloodrager 3, magus 3, sorcerer/wizard 3, witch 3",
+    "area_entry": "cone-shaped burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Soften Earth and Stone",
+    "level": "druid 2",
+    "area_entry": "10-ft. square/level; see text",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Soulreaver",
+    "level": "cleric/oracle 8, sorcerer/wizard 8, witch 8",
+    "area_entry": "living creatures in a 20-ft.-radius spread",
+    "duration": "instantaneous",
+    "qualification_reason": "Has a defined area of effect and duration is instantaneous."
+  },
+  {
+    "name": "Sound Burst",
+    "level": "bard 2, cleric/oracle 2, occultist 2",
+    "area_entry": "10-ft.-radius spread",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Stormbolts",
+    "level": "cleric/oracle 8, druid 8, sorcerer/wizard 8, witch 8, shaman 8",
+    "area_entry": "a 30-ft.-radius spread, centered on you",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Sunburst",
+    "level": "druid 8, sorcerer/wizard 8, shaman 8",
+    "area_entry": "80-ft.-radius burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Telekinetic Storm",
+    "level": "psychic 9",
+    "area_entry": "40-ft.-radius burst centered on you",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Thundering Drums",
+    "level": "bard 3",
+    "area_entry": "cone-shaped burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Thunderstomp, Greater",
+    "level": "bloodrager 3, druid 3, magus 3, ranger 3, sorcerer/wizard 3",
+    "area_entry": "60-ft. line",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Tidal Surge",
+    "level": "druid 5, shaman 5",
+    "area_entry": "cone-shaped burst or line; see text",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Transmute Metal to Wood",
+    "level": "druid 7",
+    "area_entry": "all metal objects within a 40-ft.-radius burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Undeath to Death",
+    "level": "cleric/oracle 6, sorcerer/wizard 6, inquisitor 6, spiritualist 6",
+    "area_entry": "several undead creatures within a 40-ft.-radius burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Unhallow",
+    "level": "cleric/oracle 5, druid 5, inquisitor 5",
+    "area_entry": "40-ft. radius emanating from the touched point",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Unholy Blight",
+    "level": "cleric/oracle 4, inquisitor 4",
+    "area_entry": "20-ft.-radius spread",
+    "duration": "instantaneous (1d4 rounds); see text",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Virulence",
+    "level": "cleric/oracle 4, witch 4",
+    "area_entry": "all living creatures within a 40-ft.-radius burst centered on you",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Wail of the Banshee",
+    "level": "sorcerer/wizard 9, witch 9, shaman 9, psychic 9",
+    "area_entry": "one living creature/level within a 40-ft.-radius spread",
+    "duration": "instantaneous",
+    "qualification_reason": "Has a defined area of effect (40-ft.-radius spread) and duration is instantaneous."
+  },
+  {
+    "name": "Waves Of Blood",
+    "level": "bloodrager 3, magus 3, psychic 3, sorcerer/wizard 3, spiritualist 3, witch 3",
+    "area_entry": "cone-shaped burst",
+    "duration": "instantaneous and 1 round; see text",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Waves of Exhaustion",
+    "level": "sorcerer/wizard 7, witch 7, psychic 7, mesmerist 6",
+    "area_entry": "cone-shaped burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Waves of Fatigue",
+    "level": "sorcerer/wizard 5, witch 5, psychic 5, mesmerist 5, spiritualist 5",
+    "area_entry": "cone-shaped burst",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  },
+  {
+    "name": "Word Of Chaos",
+    "level": "cleric/oracle 7, inquisitor 6",
+    "area_entry": "nonchaotic creatures in a 40-ft.-radius spread centered on you",
+    "duration": "instantaneous",
+    "qualification_reason": "Explicit area field + instantaneous duration (confirmed by SQL filter)"
+  }
+]

@@ -5,7 +5,12 @@
       "Bash(\"C:\\\\Users\\\\rover vos\\\\Documents\\\\Spellfinder-PF1E\\\\.venv\\\\Scripts\\\\python.exe\" -c:*)",
       "WebFetch(domain:aonprd.com)",
       "Bash(.venv/Scripts/python:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(python:*)",
+      "Bash(\"C:\\\\Users\\\\rover vos\\\\Documents\\\\Spellfinder-PF1E\\\\.venv\\\\Scripts\\\\python.exe\" -c \":*)",
+      "Bash(\"C:\\\\Users\\\\rover vos\\\\Documents\\\\Spellfinder-PF1E\\\\.venv\\\\Scripts\\\\python.exe\":*)",
+      "Bash(cmd /c del \"C:\\\\Users\\\\rover vos\\\\Documents\\\\Spellfinder-PF1E\\\\tools\\\\_fix_phantom_types.py\")",
+      "Bash(\"C:\\\\Users\\\\rover vos\\\\Documents\\\\Spellfinder-PF1E\\\\.venv\\\\Scripts\\\\python.exe\" -c \"import os; os.remove\\(r''C:\\\\Users\\\\rover vos\\\\Documents\\\\Spellfinder-PF1E\\\\tools\\\\fix_feat_categories.py''\\)\")"
     ]
   }
 }

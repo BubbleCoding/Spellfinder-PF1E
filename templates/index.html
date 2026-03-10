@@ -16,6 +16,8 @@
         <div class="tab-bar">
             <button class="tab active" data-tab="all">All Spells</button>
             <button class="tab" data-tab="spellbook">Spellbook</button>
+            <button class="tab" data-tab="feats">Feats</button>
+            <button class="tab" data-tab="macros">Roll20</button>
             <button class="tab" data-tab="info">Info</button>
         </div>
 
@@ -91,6 +93,46 @@
                         <tr><td><code>range:value</code></td><td>Range contains value</td><td><code>range:personal</code></td></tr>
                         <tr><td><code>target:value</code></td><td>Targets contains value</td><td><code>target:undead</code></td></tr>
                         <tr><td><code>area:value</code></td><td>Area/effect contains value</td><td><code>area:cone</code></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="info-section">
+                <h2>Feats Advanced Search</h2>
+                <p>The Feats tab supports the same <code>field:value</code> syntax, <code>!</code> exclusions, and <code>AND</code>/<code>OR</code> operators as spell search.</p>
+
+                <h3>Field:value tokens</h3>
+                <table class="info-table">
+                    <thead><tr><th>Token</th><th>Matches</th><th>Example</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>type:name</code></td><td>Feat type contains value</td><td><code>type:combat</code></td></tr>
+                        <tr><td><code>source:name</code></td><td>Source book contains value</td><td><code>source:Ultimate</code>, <code>source:Advanced</code></td></tr>
+                        <tr><td><code>prereq:text</code></td><td>Prerequisites contain value</td><td><code>prereq:BAB 6</code></td></tr>
+                        <tr><td><code>race:name</code></td><td>Race name contains value</td><td><code>race:dwarf</code></td></tr>
+                        <tr><td><code>benefit:text</code></td><td>Benefit text contains value</td><td><code>benefit:dodge bonus</code></td></tr>
+                        <tr>
+                            <td><code>flag:name</code></td>
+                            <td>Boolean tag is set</td>
+                            <td>
+                                <code>flag:teamwork</code><br>
+                                <code>flag:grit</code><br>
+                                <code>flag:style</code><br>
+                                <code>flag:racial</code><br>
+                                <code>flag:panache</code>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Examples</h3>
+                <table class="info-table">
+                    <thead><tr><th>Query</th><th>Result</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>type:combat flag:teamwork</code></td><td>Combat feats that are tagged teamwork</td></tr>
+                        <tr><td><code>!prereq:str type:combat</code></td><td>Combat feats with no Strength prerequisite</td></tr>
+                        <tr><td><code>prereq:BAB AND prereq:dex</code></td><td>Feats requiring both BAB and Dexterity</td></tr>
+                        <tr><td><code>source:Ultimate !type:combat</code></td><td>Non-combat feats from Ultimate sources</td></tr>
+                        <tr><td><code>type:metamagic !prereq:</code></td><td>Metamagic feats with no prerequisites</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -188,6 +230,7 @@
                 <div id="ms-descriptor" class="multiselect"></div>
             </div>
             <button id="favorites-btn" title="Show favorites only">★ Favorites</button>
+            <button id="explosive-btn" title="Show Explosive Weapon feat compatible spells only">💥 Explosive</button>
             <button id="clear-filters" title="Clear all filters">Clear</button>
         </div>
 
@@ -222,6 +265,137 @@
 
         <div class="pagination" id="pagination"></div>
         </div><!-- #search-section -->
+
+        <div id="feats-section" class="hidden">
+            <div class="search-bar">
+                <input type="text" id="feat-search-input" placeholder='Search feats... (e.g. improved, type:combat, !prereq:str, flag:teamwork, source:Ultimate)'>
+            </div>
+            <div class="filters">
+                <div class="filter-group">
+                    <label>Type</label>
+                    <div id="ms-feat-type" class="multiselect"></div>
+                </div>
+                <div class="filter-group">
+                    <label>Source</label>
+                    <div id="ms-feat-source" class="multiselect"></div>
+                </div>
+                <button id="feat-clear-filters" title="Clear all filters">Clear</button>
+            </div>
+            <div class="results-info">
+                <span id="feat-results-count"></span>
+                <div class="results-controls">
+                    <div class="sort-control">
+                        <label for="feat-per-page-select">Show:</label>
+                        <select id="feat-per-page-select">
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="all">All</option>
+                        </select>
+                    </div>
+                    <div class="sort-control">
+                        <label for="feat-sort-select">Sort:</label>
+                        <select id="feat-sort-select">
+                            <option value="">Name (A–Z)</option>
+                            <option value="name_desc">Name (Z–A)</option>
+                            <option value="type">Type (A–Z)</option>
+                            <option value="type_desc">Type (Z–A)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div id="feat-results-list"></div>
+            <div class="pagination" id="feat-pagination"></div>
+        </div><!-- #feats-section -->
+
+        <div id="macros-section" class="hidden">
+            <!-- Profile management bar -->
+            <div class="macro-profile-bar">
+                <select id="macro-profile-select" title="Active profile"></select>
+                <button id="macro-new-btn">+ New</button>
+                <button id="macro-rename-btn">Rename</button>
+                <button id="macro-delete-btn">Delete</button>
+                <button id="macro-export-btn">Export</button>
+                <button id="macro-import-btn">Import</button>
+            </div>
+
+            <div class="macro-layout">
+                <!-- Left column -->
+                <div class="macro-left">
+                    <!-- Base Stats -->
+                    <section class="macro-section">
+                        <h3 class="macro-section-title">Base Stats</h3>
+                        <div class="macro-stats-grid">
+                            <div class="macro-field">
+                                <label for="macro-base-tohit">Base To-Hit Modifier</label>
+                                <input type="number" id="macro-base-tohit" class="macro-input" value="0" step="1">
+                            </div>
+                            <div class="macro-field">
+                                <label for="macro-base-dice">Base Damage Dice</label>
+                                <input type="text" id="macro-base-dice" class="macro-input" placeholder="e.g. 2d6, 1d8">
+                            </div>
+                            <div class="macro-field">
+                                <label for="macro-base-dmgmod">Base Damage Modifier</label>
+                                <input type="number" id="macro-base-dmgmod" class="macro-input" value="0" step="1">
+                            </div>
+                            <div class="macro-field">
+                                <label for="macro-crit-range">Crit Range (lowest, e.g. 19)</label>
+                                <input type="number" id="macro-crit-range" class="macro-input" value="20" min="1" max="20" step="1">
+                            </div>
+                            <div class="macro-field">
+                                <label for="macro-crit-mult">Crit Multiplier</label>
+                                <div class="macro-crit-mult-wrap">
+                                    <select id="macro-crit-mult" class="macro-input">
+                                        <option value="2">×2</option>
+                                        <option value="3">×3</option>
+                                        <option value="4">×4</option>
+                                        <option value="custom">Custom…</option>
+                                    </select>
+                                    <input type="number" id="macro-crit-mult-custom" class="macro-input hidden"
+                                        min="2" max="99" value="5" placeholder="×?">
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Bonus List -->
+                    <section class="macro-section">
+                        <h3 class="macro-section-title">Bonuses &amp; Extra Dice</h3>
+                        <div class="macro-bonus-header">
+                            <span></span>
+                            <span>Name</span>
+                            <span>Value</span>
+                            <span>Applies To</span>
+                            <span></span>
+                        </div>
+                        <div id="macro-bonus-list"></div>
+                        <button id="macro-add-bonus" class="macro-add-btn">+ Add Bonus</button>
+                    </section>
+                </div>
+
+                <!-- Right column -->
+                <div class="macro-right">
+                    <!-- Attack List -->
+                    <section class="macro-section">
+                        <h3 class="macro-section-title">Attacks</h3>
+                        <p class="macro-hint">Set iterative penalty for each attack (e.g. 0, -5, -10). Click <strong>Crit</strong> to get crit macros for that attack.</p>
+                        <div id="macro-attack-list"></div>
+                        <button id="macro-add-attack" class="macro-add-btn">+ Add Attack</button>
+                    </section>
+
+                    <!-- Output -->
+                    <section class="macro-section">
+                        <h3 class="macro-section-title">Roll20 Macro Output</h3>
+                        <p class="macro-hint">Copy and paste into a Roll20 macro or the chat bar.</p>
+                        <textarea id="macro-output" class="macro-output-area" readonly spellcheck="false"></textarea>
+                        <div class="macro-output-footer">
+                            <button id="macro-sunblade-btn" class="macro-sunblade-btn" title="Toggle Sunblade vs Undead mode: doubles base damage dice &amp; mod, +1 crit multiplier">☀ Sunblade</button>
+                            <button id="macro-copy-btn" class="macro-copy-btn">Copy to Clipboard</button>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div><!-- #macros-section -->
     </main>
 
     <div id="spellbook-picker" class="modal-overlay">
@@ -295,6 +469,78 @@
         </div>
     </div>
 
+    <!-- Macro: profile name prompt -->
+    <div id="macro-name-modal" class="modal-overlay">
+        <div class="modal-dialog" style="min-width:320px">
+            <h3 class="modal-title" id="macro-name-modal-title">Profile Name</h3>
+            <input type="text" id="macro-name-modal-input" class="modal-text-input" placeholder="Enter name…">
+            <div class="modal-footer">
+                <button id="macro-name-modal-ok">OK</button>
+                <button id="macro-name-modal-cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Macro: confirm/alert modal -->
+    <div id="macro-confirm-modal" class="modal-overlay">
+        <div class="modal-dialog" style="min-width:320px">
+            <h3 class="modal-title">Confirm</h3>
+            <p id="macro-confirm-modal-msg" class="confirm-modal-msg"></p>
+            <div class="modal-footer">
+                <button id="macro-confirm-modal-ok" class="macro-confirm-ok-btn">Confirm</button>
+                <button id="macro-confirm-modal-cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Crit modal -->
+    <div id="crit-modal" class="modal-overlay">
+        <div class="modal-dialog">
+            <h3 class="modal-title">Crit Macros</h3>
+            <div class="crit-block">
+                <label class="crit-block-label">Confirmation Roll</label>
+                <textarea id="crit-confirm-output" class="macro-output-area" readonly spellcheck="false"></textarea>
+                <button id="crit-confirm-copy" class="macro-btn-sm">Copy</button>
+            </div>
+            <div id="crit-damage-section" class="crit-block hidden">
+                <label class="crit-block-label">Extra Damage Roll</label>
+                <textarea id="crit-damage-output" class="macro-output-area" readonly spellcheck="false"></textarea>
+                <button id="crit-damage-copy" class="macro-btn-sm">Copy</button>
+            </div>
+            <div class="modal-footer">
+                <button id="crit-modal-close">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile export modal -->
+    <div id="macro-export-modal" class="modal-overlay">
+        <div class="modal-dialog">
+            <h3 class="modal-title">Export Profile</h3>
+            <p class="modal-subtitle">Copy this backup code to save or share your profile.</p>
+            <textarea id="macro-export-output" class="macro-output-area" readonly spellcheck="false"></textarea>
+            <div class="modal-footer">
+                <button id="macro-export-copy">Copy Code</button>
+                <button id="macro-export-close">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile import modal -->
+    <div id="macro-import-modal" class="modal-overlay">
+        <div class="modal-dialog">
+            <h3 class="modal-title">Import Profile</h3>
+            <p class="modal-subtitle">Paste a backup code below to restore a profile.</p>
+            <textarea id="macro-import-input" class="macro-output-area" placeholder="Paste backup code here..." spellcheck="false"></textarea>
+            <div class="modal-footer">
+                <button id="macro-import-ok">Import</button>
+                <button id="macro-import-cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/app.js"></script>
+    <script src="/static/feats.js"></script>
+    <script src="/static/macros.js"></script>
 </body>
 </html>
