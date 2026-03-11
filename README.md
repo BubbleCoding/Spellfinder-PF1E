@@ -23,6 +23,7 @@ The app is live at: **https://spellfinder-pf1e.onrender.com**
 - Sort by name, level, or school
 - Dark parchment theme
 - Links to Archives of Nethys for each spell
+- **Roll20 Macro Builder** — build and copy attack macros for Roll20, with structured modifier support
 
 ## Spellbooks
 
@@ -99,7 +100,9 @@ Spellfinder/
 ├── start.sh                  # One-click launcher for Mac/Linux
 ├── static/
 │   ├── style.css             # Dark parchment theme
-│   └── app.js                # Frontend: search, filters, spellbooks, rendering, pagination
+│   ├── app.js                # Frontend: search, filters, spellbooks, rendering, pagination
+│   ├── feats.js              # Feats tab frontend
+│   └── macros.js             # Roll20 Macro Builder frontend
 ├── templates/
 │   └── index.html            # Main page template
 └── categorization/
@@ -117,6 +120,23 @@ Spellfinder/
 Base spell data from [PaigeM89/PathfinderSpellDb](https://github.com/PaigeM89/PathfinderSpellDb). The database has been cross-referenced against [Archives of Nethys](https://aonprd.com/Spells.aspx?Class=All) and extended with spells missing from the CSV source, bringing the total to 3,039 spells across 28 classes, 11 schools, and 154 sources.
 
 Shaman spirit and oracle mystery spell lists are not in the CSV; they are imported separately from a user-provided `spirit and mystery.xlsx` file.
+
+## Roll20 Macro Builder
+
+The Roll20 tab generates inline attack macros you can paste directly into Roll20. All data is stored in your browser's **localStorage** — no account or server needed.
+
+- **Profiles** — create multiple named profiles (e.g. one per character); export/import via base64 backup codes
+- **Base Stats** — BAB / Base To-Hit (also used for Power Attack scaling), weapon damage dice, crit range and multiplier
+- **Modifiers section**:
+  - *Ability Score* — select stat (STR/DEX/etc.) and enter score; modifier auto-calculated and added to hit and damage. "Split Hit/Dmg" reveals separate fields for builds that use different stats (e.g. DEX to hit, STR to damage for finesse)
+  - *Enhancement Bonus* — magic weapon bonus added to both hit and damage
+  - *Power Attack / Deadly Aim* — toggles that apply the scaling hit penalty and damage bonus automatically
+  - *Damage Scaling* — "Per-attack scaling" toggle: off = one global STR × and PA × multiplier for all attacks; on = per-attack dropdowns (0.5× / 1× / 1.5× / Custom) for off-hand / one-handed / two-handed
+- **Bonus Groups** — named, collapsible groups under "Bonuses & Extra Dice"; each group holds bonus rows (name, value, Hit/Dmg/Crit Hit/Crit Dmg checkboxes). Create as many groups as needed (e.g. "Buffs", "Enchants", "Situational")
+- **Attacks** — one row per attack with iterative penalty; PA × and STR × appear inline when per-attack scaling is on
+- **Crit macros** — per-attack Crit button generates a confirmation roll and extra damage roll(s) based on the crit multiplier
+- **Sunblade toggle** — session toggle that doubles the damage roll count and adds +1 to crit multiplier (vs undead)
+- **Live output** — macro text updates in real time; copy to clipboard with one click
 
 ## Filters
 

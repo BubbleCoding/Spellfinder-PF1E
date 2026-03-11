@@ -1270,15 +1270,6 @@ main {
     background: rgba(192, 96, 96, 0.1) !important;
 }
 
-/* Attack rows */
-.macro-attack-row {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    padding: 0.45rem 0.15rem;
-    border-bottom: 1px solid var(--border);
-}
-.macro-attack-row:last-child { border-bottom: none; }
 
 .attack-label {
     font-size: 0.85rem;
@@ -1433,15 +1424,147 @@ main {
 .crit-block .macro-output-area { min-height: 3rem; resize: none; }
 .crit-block .macro-btn-sm { margin-top: 0.35rem; }
 
+/* Modifiers section */
+.macro-mods-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem;
+}
+
+.macro-field-sub {
+    font-weight: 400;
+    font-style: italic;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--text-dim);
+    opacity: 0.7;
+}
+
+.macro-ability-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.macro-input-auto { width: auto; flex-shrink: 0; }
+.macro-input-narrow { width: 68px; flex-shrink: 0; }
+
+.macro-computed-badge {
+    font-size: 0.85rem;
+    font-family: "Consolas", "Courier New", monospace;
+    color: var(--accent);
+    min-width: 2.5rem;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.macro-field-wide {
+    grid-column: 1 / -1;   /* span full grid width */
+}
+
+.macro-split-toggle {
+    margin-left: 0.6rem;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.macro-split-label {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    min-width: 2rem;
+    flex-shrink: 0;
+}
+
+.macro-scaling-toggle {
+    margin-bottom: 0.4rem;
+}
+
+.macro-global-mults {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 0.3rem;
+}
+
+.macro-feat-toggles {
+    display: flex;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+}
+
+
+/* Bonus groups */
+.macro-bonus-group {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.6rem 0.75rem 0.5rem;
+    margin-bottom: 0.65rem;
+}
+.macro-bonus-group:last-child { margin-bottom: 0; }
+
+.macro-group-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+.macro-bonus-group.collapsed .macro-group-header { margin-bottom: 0; }
+.macro-bonus-group.collapsed .macro-group-body   { display: none; }
+
+.macro-fold-btn {
+    flex-shrink: 0;
+    font-size: 0.65rem;
+    padding: 0.2rem 0.4rem;
+}
+
+.macro-group-name {
+    flex: 1;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.2rem 0.4rem;
+}
+
+/* Attack rows — single inline flex row */
+.macro-attack-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    padding: 0.45rem 0.15rem;
+    border-bottom: 1px solid var(--border);
+}
+.macro-attack-row:last-child { border-bottom: none; }
+
+.macro-mult-field {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.macro-mult-sel    { width: 74px !important; }
+.macro-mult-custom { width: 60px !important; }
+
 /* ── End Roll20 Macro Builder ─────────────────────────────────────────────── */
 
 /* Responsive */
 @media (max-width: 680px) {
     .macro-layout { grid-template-columns: 1fr; }
     .macro-stats-grid { grid-template-columns: 1fr; }
+    .macro-mods-grid { grid-template-columns: 1fr; }
     .macro-bonus-header,
     .macro-bonus-row { grid-template-columns: 24px 1fr 75px 1fr 28px; }
     .bonus-applies { gap: 0.35rem; }
+    .macro-attack-mods { padding-left: 0; }
 }
 
 @media (max-width: 600px) {

@@ -327,16 +327,12 @@
                         <h3 class="macro-section-title">Base Stats</h3>
                         <div class="macro-stats-grid">
                             <div class="macro-field">
-                                <label for="macro-base-tohit">Base To-Hit Modifier</label>
+                                <label for="macro-base-tohit">Base Attack Bonus</label>
                                 <input type="number" id="macro-base-tohit" class="macro-input" value="0" step="1">
                             </div>
                             <div class="macro-field">
                                 <label for="macro-base-dice">Base Damage Dice</label>
                                 <input type="text" id="macro-base-dice" class="macro-input" placeholder="e.g. 2d6, 1d8">
-                            </div>
-                            <div class="macro-field">
-                                <label for="macro-base-dmgmod">Base Damage Modifier</label>
-                                <input type="number" id="macro-base-dmgmod" class="macro-input" value="0" step="1">
                             </div>
                             <div class="macro-field">
                                 <label for="macro-crit-range">Crit Range (lowest, e.g. 19)</label>
@@ -358,18 +354,95 @@
                         </div>
                     </section>
 
-                    <!-- Bonus List -->
+                    <!-- Structured Modifiers -->
+                    <section class="macro-section">
+                        <h3 class="macro-section-title">Modifiers</h3>
+                        <div class="macro-mods-grid">
+
+                            <!-- Ability Score (single or split hit/dmg) -->
+                            <div class="macro-field macro-field-wide">
+                                <label>Ability Score
+                                    <label class="macro-check-label macro-split-toggle">
+                                        <input type="checkbox" id="macro-mod-split-ability"> Split Hit/Dmg
+                                    </label>
+                                </label>
+                                <!-- Single mode -->
+                                <div id="macro-ability-single" class="macro-ability-row">
+                                    <select id="macro-mod-ability-type" class="macro-input macro-input-auto">
+                                        <option value="STR">STR</option>
+                                        <option value="DEX">DEX</option>
+                                        <option value="CON">CON</option>
+                                        <option value="INT">INT</option>
+                                        <option value="WIS">WIS</option>
+                                        <option value="CHA">CHA</option>
+                                    </select>
+                                    <input type="number" id="macro-mod-ability-score" class="macro-input macro-input-narrow" value="10" min="1" max="40">
+                                    <span id="macro-mod-ability-display" class="macro-computed-badge">+0</span>
+                                </div>
+                                <!-- Split mode -->
+                                <div id="macro-ability-split" class="hidden">
+                                    <div class="macro-ability-row">
+                                        <span class="macro-split-label">Hit</span>
+                                        <select id="macro-mod-ability-type-hit" class="macro-input macro-input-auto">
+                                            <option value="STR">STR</option>
+                                            <option value="DEX">DEX</option>
+                                            <option value="CON">CON</option>
+                                            <option value="INT">INT</option>
+                                            <option value="WIS">WIS</option>
+                                            <option value="CHA">CHA</option>
+                                        </select>
+                                        <input type="number" id="macro-mod-ability-score-hit" class="macro-input macro-input-narrow" value="10" min="1" max="40">
+                                        <span id="macro-mod-ability-display-hit" class="macro-computed-badge">+0</span>
+                                    </div>
+                                    <div class="macro-ability-row" style="margin-top:0.35rem">
+                                        <span class="macro-split-label">Dmg</span>
+                                        <select id="macro-mod-ability-type-dmg" class="macro-input macro-input-auto">
+                                            <option value="STR">STR</option>
+                                            <option value="DEX">DEX</option>
+                                            <option value="CON">CON</option>
+                                            <option value="INT">INT</option>
+                                            <option value="WIS">WIS</option>
+                                            <option value="CHA">CHA</option>
+                                        </select>
+                                        <input type="number" id="macro-mod-ability-score-dmg" class="macro-input macro-input-narrow" value="10" min="1" max="40">
+                                        <span id="macro-mod-ability-display-dmg" class="macro-computed-badge">+0</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Enhancement -->
+                            <div class="macro-field">
+                                <label for="macro-mod-enh">Enhancement <span class="macro-field-sub">(hit &amp; dmg)</span></label>
+                                <input type="number" id="macro-mod-enh" class="macro-input macro-input-narrow" value="0" min="0" max="10">
+                            </div>
+
+                            <!-- Feat Toggles -->
+                            <div class="macro-field">
+                                <label>Feat Toggles</label>
+                                <div class="macro-feat-toggles">
+                                    <label class="macro-check-label">
+                                        <input type="checkbox" id="macro-mod-pa"> Power Attack
+                                    </label>
+                                    <label class="macro-check-label">
+                                        <input type="checkbox" id="macro-mod-da"> Deadly Aim
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Scaling (per-attack toggle + global mults; populated by JS) -->
+                            <div class="macro-field">
+                                <label>Damage Scaling</label>
+                                <div id="macro-mod-scaling-area"></div>
+                            </div>
+
+                        </div>
+                    </section>
+
+                    <!-- Bonus Groups -->
                     <section class="macro-section">
                         <h3 class="macro-section-title">Bonuses &amp; Extra Dice</h3>
-                        <div class="macro-bonus-header">
-                            <span></span>
-                            <span>Name</span>
-                            <span>Value</span>
-                            <span>Applies To</span>
-                            <span></span>
-                        </div>
-                        <div id="macro-bonus-list"></div>
-                        <button id="macro-add-bonus" class="macro-add-btn">+ Add Bonus</button>
+                        <div id="macro-bonus-groups"></div>
+                        <button id="macro-add-group" class="macro-add-btn">+ New Group</button>
                     </section>
                 </div>
 
