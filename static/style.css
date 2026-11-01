@@ -1193,7 +1193,7 @@ main {
 /* Bonus list header */
 .macro-bonus-header {
     display: grid;
-    grid-template-columns: 24px 1fr 85px 1fr 28px;
+    grid-template-columns: 14px 24px 1fr 85px 1fr 28px;
     gap: 0.4rem;
     padding: 0 0.15rem 0.3rem;
     font-size: 0.7rem;
@@ -1204,10 +1204,10 @@ main {
     margin-bottom: 0.2rem;
 }
 
-/* Bonus rows — 5 cells: [checkbox] [name] [value] [applies-wrapper] [delete] */
+/* Bonus rows — 6 cells: [grip] [checkbox] [name] [value] [applies-wrapper] [delete] */
 .macro-bonus-row {
     display: grid;
-    grid-template-columns: 24px 1fr 85px 1fr 28px;
+    grid-template-columns: 14px 24px 1fr 85px 1fr 28px;
     gap: 0.4rem;
     align-items: center;
     padding: 0.35rem 0.15rem;
@@ -1539,6 +1539,23 @@ main {
     border-bottom: 1px solid var(--border);
 }
 .macro-attack-row:last-child { border-bottom: none; }
+.macro-attack-row.dragging { opacity: 0.4; }
+.macro-attack-row.drag-over { border-top: 2px solid var(--accent, #c8a26d); }
+.macro-bonus-row.dragging { opacity: 0.4; }
+.macro-bonus-row.drag-over { border-top: 2px solid var(--accent, #c8a26d); }
+
+.attack-drag-handle,
+.bonus-drag-handle {
+    cursor: grab;
+    color: var(--text-dim);
+    font-size: 1.1rem;
+    padding: 0 0.1rem;
+    flex-shrink: 0;
+    user-select: none;
+    line-height: 1;
+}
+.attack-drag-handle:active,
+.bonus-drag-handle:active { cursor: grabbing; }
 
 .macro-mult-field {
     display: flex;
@@ -1562,7 +1579,7 @@ main {
     .macro-stats-grid { grid-template-columns: 1fr; }
     .macro-mods-grid { grid-template-columns: 1fr; }
     .macro-bonus-header,
-    .macro-bonus-row { grid-template-columns: 24px 1fr 75px 1fr 28px; }
+    .macro-bonus-row { grid-template-columns: 14px 24px 1fr 75px 1fr 28px; }
     .bonus-applies { gap: 0.35rem; }
     .macro-attack-mods { padding-left: 0; }
 }

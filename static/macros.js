@@ -600,7 +600,7 @@
 
         const colHeader = document.createElement('div');
         colHeader.className = 'macro-bonus-header macro-group-body';
-        colHeader.innerHTML = '<span></span><span>Name</span><span>Value</span><span>Applies To</span><span></span>';
+        colHeader.innerHTML = '<span></span><span></span><span>Name</span><span>Value</span><span>Applies To</span><span></span>';
         panel.appendChild(colHeader);
 
         const list = document.createElement('div');
@@ -626,11 +626,55 @@
         const row = document.createElement('div');
         row.className = 'macro-bonus-row';
         row.dataset.id = bonus.id;
+
+        // Drag handle (prepended before innerHTML content via grid order)
+        const grip = document.createElement('span');
+        grip.className = 'bonus-drag-handle';
+        grip.textContent = '⠿';
+        grip.title = 'Drag to reorder';
+        grip.addEventListener('mousedown', () => { row.draggable = true; });
+        grip.addEventListener('mouseup',   () => { row.draggable = false; });
+        row.appendChild(grip);
+
+        row.addEventListener('dragstart', e => {
+            e.dataTransfer.setData('text/plain', bonus.id);
+            e.dataTransfer.effectAllowed = 'move';
+            row.classList.add('dragging');
+        });
+        row.addEventListener('dragend', () => {
+            row.draggable = false;
+            row.classList.remove('dragging');
+            document.querySelectorAll('.macro-bonus-row.drag-over')
+                .forEach(r => r.classList.remove('drag-over'));
+        });
+        row.addEventListener('dragover', e => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            document.querySelectorAll('.macro-bonus-row.drag-over')
+                .forEach(r => r.classList.remove('drag-over'));
+            row.classList.add('drag-over');
+        });
+        row.addEventListener('dragleave', e => {
+            if (!row.contains(e.relatedTarget)) row.classList.remove('drag-over');
+        });
+        row.addEventListener('drop', e => {
+            e.preventDefault();
+            row.classList.remove('drag-over');
+            const draggedId = e.dataTransfer.getData('text/plain');
+            if (draggedId === bonus.id) return;
+            const fromIdx = group.bonuses.findIndex(b => b.id === draggedId);
+            const toIdx   = group.bonuses.findIndex(b => b.id === bonus.id);
+            if (fromIdx === -1 || toIdx === -1) return;
+            const [moved] = group.bonuses.splice(fromIdx, 1);
+            group.bonuses.splice(toIdx, 0, moved);
+            persist(); renderBonusGroups(); renderMacroOutput();
+        });
+
         const valid            = isValidValue(bonus.value || '');
         const appliesToCritHit = bonus.appliesToCritHit !== false;
         const appliesToCritDmg = bonus.appliesToCrit    !== false;
 
-        row.innerHTML = `
+        row.insertAdjacentHTML('beforeend', `
             <label class="macro-checkbox-wrap" title="Enable this bonus">
                 <input type="checkbox" class="bonus-enabled" ${bonus.enabled ? 'checked' : ''}>
             </label>
@@ -653,7 +697,7 @@
                     <input type="checkbox" class="bonus-critdmg" ${appliesToCritDmg ? 'checked' : ''}> Crit Dmg
                 </label>
             </div>
-            <button class="macro-btn-sm macro-del-btn" title="Remove bonus">✕</button>`;
+            <button class="macro-btn-sm macro-del-btn" title="Remove bonus">✕</button>`);
 
         row.querySelector('.bonus-enabled').addEventListener('change', e => {
             bonus.enabled = e.target.checked; persist(); renderMacroOutput();
@@ -698,6 +742,50 @@
         const row = document.createElement('div');
         row.className = 'macro-attack-row';
         row.dataset.id = attack.id;
+
+        // Drag handle
+        const grip = document.createElement('span');
+        grip.className = 'attack-drag-handle';
+        grip.textContent = '⠿';
+        grip.title = 'Drag to reorder';
+        grip.addEventListener('mousedown', () => { row.draggable = true; });
+        grip.addEventListener('mouseup',   () => { row.draggable = false; });
+        row.appendChild(grip);
+
+        row.addEventListener('dragstart', e => {
+            e.dataTransfer.setData('text/plain', attack.id);
+            e.dataTransfer.effectAllowed = 'move';
+            row.classList.add('dragging');
+        });
+        row.addEventListener('dragend', () => {
+            row.draggable = false;
+            row.classList.remove('dragging');
+            document.querySelectorAll('.macro-attack-row.drag-over')
+                .forEach(r => r.classList.remove('drag-over'));
+        });
+        row.addEventListener('dragover', e => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            document.querySelectorAll('.macro-attack-row.drag-over')
+                .forEach(r => r.classList.remove('drag-over'));
+            row.classList.add('drag-over');
+        });
+        row.addEventListener('dragleave', e => {
+            if (!row.contains(e.relatedTarget)) row.classList.remove('drag-over');
+        });
+        row.addEventListener('drop', e => {
+            e.preventDefault();
+            row.classList.remove('drag-over');
+            const draggedId = e.dataTransfer.getData('text/plain');
+            if (draggedId === attack.id) return;
+            const p = getActive();
+            const fromIdx = p.attacks.findIndex(a => a.id === draggedId);
+            const toIdx   = p.attacks.findIndex(a => a.id === attack.id);
+            if (fromIdx === -1 || toIdx === -1) return;
+            const [moved] = p.attacks.splice(fromIdx, 1);
+            p.attacks.splice(toIdx, 0, moved);
+            persist(); renderAttacks(); renderMacroOutput();
+        });
 
         const p    = getActive();
         const mods = p.modifiers || {};
