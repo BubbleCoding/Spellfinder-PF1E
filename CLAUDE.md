@@ -200,6 +200,9 @@ Profiles stored as array under `roll20_profiles`; active ID under `roll20_active
 ### Session-only toggles
 
 - **Sunblade** — doubles damage roll count (like a crit) for all attacks; +1 to effective crit multiplier for crit macros
+- **🎲 Dice** (persisted in `roll20_dice_mode`) — outputs plain dice text instead of Roll20 syntax (`Roll 1d20+16 to hit, 3d6+8 for damage`); `buildPlainRoll()` merges same-size dice and sums flat numbers
+
+A standalone phone copy of the builder lives in the separate `BubbleCoding.github.io` repo under `roll20/` — re-copy `static/macros.js` there after changes.
 
 ### localStorage keys
 

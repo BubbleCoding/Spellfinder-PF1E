@@ -124,6 +124,10 @@
     // ── Sunblade toggle (session-only) ────────────────────────────────────────
     let sunbladeActive = false;
 
+    // ── Dice mode toggle (persisted): plain dice to roll instead of Roll20 syntax
+    const DICE_MODE_KEY = 'roll20_dice_mode';
+    let diceMode = localStorage.getItem(DICE_MODE_KEY) === '1';
+
     // ── Math helpers ──────────────────────────────────────────────────────────
     const VALUE_REGEX = /^-?\d+$|^\d+d\d+$/;
     function isValidValue(v) { return v === '' || VALUE_REGEX.test(v.trim()); }
@@ -166,6 +170,29 @@
             result += t.startsWith('-') ? t : '+' + t;
         }
         return `[[${result}]]`;
+    }
+
+    // Plain dice expression: groups dice by size and sums flat numbers (e.g. 2d6+1d6+8 → 3d6+8)
+    function buildPlainRoll(terms) {
+        const filtered = terms.filter(t => t != null && t !== '');
+        if (filtered.length === 0) return '';
+        const dice = new Map();
+        let flat = 0;
+        for (const t of filtered) {
+            const m = /^(\d+)d(\d+)/.exec(t);
+            if (m) dice.set(m[2], (dice.get(m[2]) || 0) + parseInt(m[1]));
+            else flat += parseInt(t) || 0;
+        }
+        const parts = [...dice].map(([size, n]) => `${n}d${size}`);
+        if (flat !== 0 || parts.length === 0) parts.push(String(flat));
+        return parts.join('+').replace(/\+-/g, '-');
+    }
+
+    function repeatTerms(terms, n) { return [].concat(...Array(n).fill(terms)); }
+
+    function threatNote(profile) {
+        const range = parseInt(profile.critRange) || 20;
+        return range < 20 ? ` (threat ${range}–20)` : '';
     }
 
     function buildToHitTerms(profile, attack) {
@@ -285,6 +312,12 @@
         if (attacks.length === 0) return '(no attacks defined)';
         return attacks.map((attack, idx) => {
             const label   = attackLabel(attack, idx);
+            if (diceMode) {
+                const reps = sunbladeActive ? (parseInt(profile.critMultiplier) || 2) : 1;
+                const hit  = buildPlainRoll(buildToHitTerms(profile, attack)) + threatNote(profile);
+                const dmg  = buildPlainRoll(repeatTerms(buildDamageTerms(profile, attack), reps));
+                return dmg ? `${label}: Roll ${hit} to hit, ${dmg} for damage` : `${label}: Roll ${hit} to hit`;
+            }
             const toHit   = buildInlineRoll(buildToHitTerms(profile, attack));
             const dmgRoll = buildInlineRoll(buildDamageTerms(profile, attack));
             if (!dmgRoll) return `${label}: ${toHit}`;
@@ -301,6 +334,13 @@
         const label    = attackLabel(attack, attackIdx);
         const baseMult = parseInt(profile.critMultiplier) || 2;
         const mult     = sunbladeActive ? baseMult + 1 : baseMult;
+        if (diceMode) {
+            const extra = buildPlainRoll(repeatTerms(buildCritDamageTerms(profile, attack), mult - 1));
+            return {
+                confirmLine: `Crit Confirm (${label}): Roll ${buildPlainRoll(buildCritToHitTerms(profile, attack))}`,
+                extraLine: extra ? `Crit Damage (${label} ×${mult}): Roll ${extra} extra` : '',
+            };
+        }
         const toHit    = buildInlineRoll(buildCritToHitTerms(profile, attack));
         const critDmgRoll = buildInlineRoll(buildCritDamageTerms(profile, attack));
 
@@ -1070,6 +1110,15 @@
         el('macro-sunblade-btn').addEventListener('click', () => {
             sunbladeActive = !sunbladeActive;
             el('macro-sunblade-btn').classList.toggle('active', sunbladeActive);
+            renderMacroOutput();
+        });
+
+        // Dice mode toggle
+        el('macro-dice-btn').classList.toggle('active', diceMode);
+        el('macro-dice-btn').addEventListener('click', () => {
+            diceMode = !diceMode;
+            localStorage.setItem(DICE_MODE_KEY, diceMode ? '1' : '0');
+            el('macro-dice-btn').classList.toggle('active', diceMode);
             renderMacroOutput();
         });
 
