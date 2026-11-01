@@ -2,14 +2,29 @@
 
 import base64
 import json
-import os
-import re
-import shlex
-import sqlite3
 import zlib
-from collections import defaultdict
 
-from flask import Flask, g, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request
+
+from db import (
+    DB_PATH,
+    build_fts_query,
+    close_db,
+    ensure_feats_tables,
+    get_db,
+    get_explosive_spell_ids,
+    load_explosive_spell_ids,
+)
+from filters import (
+    DESCRIPTOR_FLAG_MAP,
+    FEAT_QUERY_FIELD_MAP,
+    GROUPED_FILTER_MAPS,
+    QUERY_FIELD_MAP,
+    _DESCRIPTOR_TAGS,
+    apply_feat_field_clauses,
+    apply_field_clauses,
+    parse_advanced_query,
+)
 
 
 def encode_spellbook(data: dict) -> str:
@@ -27,362 +42,11 @@ def decode_spellbook_key(key: str) -> dict:
 
 
 app = Flask(__name__)
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pfinder.db")
 
-# Grouped LIKE filter options: param_value.lower() → (db_field, like_keyword)
-# Area options cover both the `area` and `effect` columns.
-_DESCRIPTOR_TAGS = [
-    "Mind-Affecting", "Emotion", "Fear", "Language-Dependent", "Evil", "Good",
-    "Lawful", "Chaotic", "Fire", "Cold", "Electricity", "Acid", "Sonic", "Force",
-    "Air", "Earth", "Water", "Light", "Darkness", "Shadow", "Curse", "Poison",
-    "Disease", "Death", "Pain", "Meditative", "Ruse", "Draconic",
-]
-
-DESCRIPTOR_FLAG_MAP = {
-    "acid": "acid", "air": "air", "chaotic": "chaotic", "cold": "cold",
-    "curse": "curse", "darkness": "darkness", "death": "death",
-    "disease": "disease", "earth": "earth", "electricity": "electricity",
-    "emotion": "emotion", "evil": "evil", "fear": "fear", "fire": "fire",
-    "force": "force", "good": "good", "language-dependent": "language_dependent",
-    "lawful": "lawful", "light": "light", "mind-affecting": "mind_affecting",
-    "pain": "pain", "poison": "poison", "shadow": "shadow", "sonic": "sonic",
-    "water": "water", "meditative": "meditative", "ruse": "ruse",
-    "draconic": "draconic",
-}
-
-GROUPED_FILTER_MAPS = {
-    "casting_time": {
-        "standard action":   ("casting_time", "standard"),
-        "full-round action": ("casting_time", "full"),
-        "swift action":      ("casting_time", "swift"),
-        "immediate action":  ("casting_time", "immediate"),
-        "1 round":           ("casting_time", "1 round"),
-        "1 minute":          ("casting_time", "1 min"),
-        "10 minutes":        ("casting_time", "10 min"),
-        "1 hour+":           ("casting_time", "hour"),
-    },
-    "range": {
-        "personal":  ("range", "personal"),
-        "touch":     ("range", "touch"),
-        "close":     ("range", "close"),
-        "medium":    ("range", "medium"),
-        "long":      ("range", "long"),
-        "unlimited": ("range", "unlimited"),
-        "see text":  ("range", "see text"),
-    },
-    "duration": {
-        "instantaneous":    ("duration", "instantaneous"),
-        "1 round/level":    ("duration", "round"),
-        "1 minute/level":   ("duration", "1 min"),
-        "10 minutes/level": ("duration", "10 min"),
-        "hours":            ("duration", "hour"),
-        "days":             ("duration", "day"),
-        "permanent":        ("duration", "permanent"),
-        "concentration":    ("duration", "concentration"),
-        "until discharged": ("duration", "discharged"),
-    },
-    "saving_throw": {
-        "will":      ("saving_throw", "will"),
-        "fortitude": ("saving_throw", "fortitude"),
-        "reflex":    ("saving_throw", "reflex"),
-        "none":      ("saving_throw", "none"),
-    },
-    "spell_resistance": {
-        "yes": ("spell_resistance", "yes"),
-        "no":  ("spell_resistance", "no"),
-    },
-    "area": {
-        "line":      ("area",   "line"),
-        "cone":      ("area",   "cone"),
-        "radius":    ("area",   "radius"),
-        "burst":     ("area",   "burst"),
-        "emanation": ("area",   "emanation"),
-        "spread":    ("area",   "spread"),
-        "cube":      ("area",   "cube"),
-        "cylinder":  ("area",   "cylinder"),
-        "ray":       ("effect", "ray"),
-        "wall":      ("effect", "wall"),
-        "fog":       ("effect", "fog"),
-        "sphere":    ("effect", "sphere"),
-        "hole":      ("effect", "hole"),
-    },
-}
+app.teardown_appcontext(close_db)
 
 
-# ── Advanced query field:value parser ─────────────────────────────────────────
-
-# Map query field aliases → canonical field name used in apply_field_clauses
-QUERY_FIELD_MAP = {
-    "class":        "class",
-    "school":       "school",
-    "level":        "level",
-    "domain":       "domain",
-    "deity":        "deity",
-    "bloodline":    "bloodline",
-    "patron":       "patron",
-    "spirit":       "spirit",
-    "mystery":      "mystery",
-    "subschool":    "subschool",
-    "descriptor":   "descriptor",
-    "source":       "source",
-    "duration":     "duration",
-    "range":        "range",
-    "cast":         "casting_time",
-    "casting_time": "casting_time",
-    "area":         "area",
-    "target":       "targets",
-    "targets":      "targets",
-    "category":     "category",
-}
-
-# These canonical fields do LIKE '%value%' against a single spells column
-QUERY_LIKE_FIELDS = {
-    "domain", "deity", "bloodline", "patron", "spirit", "mystery",
-    "source", "duration", "range", "casting_time", "area", "targets",
-}
-
-# These canonical fields do exact IN/= match against a spells column
-QUERY_EXACT_FIELDS = {"school", "subschool"}
-
-
-def parse_advanced_query(q):
-    """Split a query string into plain FTS text and structured field clauses.
-
-    Tokens of the form  field:value  (e.g. class:wizard, domain:fire) are
-    extracted; everything else is returned as fts_text for FTS5.
-
-    AND / OR between consecutive field:value tokens control how multiple values
-    for the same field combine:
-        class:wizard class:paladin      → OR  (either class)
-        class:wizard AND class:paladin  → AND (both classes required)
-
-    Returns (fts_text: str, field_clauses: list of dicts, negated_words: list of str)
-    Each dict: {'field': str, 'value': str, 'op': 'AND'|'OR', 'negate': bool}
-    'op' describes how this clause joins with the previous clause of the same field.
-    Prefix a token with ! to negate it: !class:cleric excludes cleric spells.
-    Plain !word tokens (no colon) exclude any spell containing that word in FTS.
-    """
-    try:
-        tokens = shlex.split(q)
-    except ValueError:
-        tokens = q.split()
-
-    fts_parts = []
-    field_clauses = []
-    negated_words = []  # plain !word exclusions applied via SQL NOT IN
-    pending_op = "OR"
-
-    for tok in tokens:
-        upper = tok.upper()
-        if upper == "AND":
-            pending_op = "AND"
-            continue
-        if upper == "OR":
-            pending_op = "OR"
-            continue
-
-        m = re.match(r"^(!?)(\w+):(.+)$", tok, re.IGNORECASE)
-        if m:
-            negate = m.group(1) == "!"
-            raw_field = m.group(2).lower()
-            value = m.group(3)
-            # Strip surrounding quotes shlex may have left on the value half
-            if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
-                value = value[1:-1]
-            canonical = QUERY_FIELD_MAP.get(raw_field)
-            if canonical:
-                field_clauses.append({"field": canonical, "value": value, "op": pending_op, "negate": negate})
-                pending_op = "OR"
-                continue
-
-        # Plain !word — exclude spells containing this word/phrase in FTS.
-        # shlex strips quotes, so a multi-word tok like "!climb speed" means
-        # the user typed !"climb speed".
-        if tok.startswith("!") and len(tok) > 1:
-            negated_words.append(tok[1:])
-            pending_op = "OR"
-            continue
-
-        # Not a recognised field:value — goes to FTS.
-        # shlex strips quotes, so a multi-word token means the user typed a
-        # quoted phrase (e.g. "climb speed"). Re-add quotes so FTS5 gets the
-        # phrase query it needs ("climb speed" instead of climb* speed*).
-        if ' ' in tok:
-            fts_parts.append(f'"{tok}"')
-        else:
-            fts_parts.append(tok)
-        pending_op = "OR"
-
-    return " ".join(fts_parts), field_clauses, negated_words
-
-
-_LEVEL_RANGE_RE = re.compile(r'^(\d+)-(\d+)$')
-_LEVEL_COMP_RE  = re.compile(r'^([<>]=?|=)(\d+)$')
-
-
-def _level_condition(value):
-    """Parse a level filter value into a (sql_fragment, params) pair.
-
-    Handles:
-      1-3    → level >= 1 AND level <= 3
-      <=2    → level <= 2   (also <, >, >=, =)
-      3      → level = 3
-    Returns (None, []) for unrecognised input.
-    """
-    v = value.strip()
-    m = _LEVEL_RANGE_RE.match(v)
-    if m:
-        lo, hi = int(m.group(1)), int(m.group(2))
-        if lo > hi:
-            lo, hi = hi, lo
-        return "level >= ? AND level <= ?", [lo, hi]
-    m = _LEVEL_COMP_RE.match(v)
-    if m:
-        op, num = m.group(1), int(m.group(2))
-        return f"level {op} ?", [num]
-    try:
-        return "level = ?", [int(v)]
-    except ValueError:
-        return None, []
-
-
-def apply_field_clauses(field_clauses, where_clauses, params):
-    """Translate parsed field clauses into WHERE conditions and params."""
-    if not field_clauses:
-        return
-
-    grouped = defaultdict(list)
-    for clause in field_clauses:
-        grouped[clause["field"]].append(clause)
-
-    for field, clauses in grouped.items():
-        positive = [c for c in clauses if not c.get("negate")]
-        negative = [c for c in clauses if c.get("negate")]
-        # has_and: true if any positive clause (after the first) is AND-connected
-        has_and = any(c["op"] == "AND" for c in positive[1:])
-
-        if field == "class":
-            if positive:
-                if has_and:
-                    for c in positive:
-                        where_clauses.append(
-                            "s.id IN (SELECT spell_id FROM spell_classes WHERE LOWER(class_name) = ?)"
-                        )
-                        params.append(c["value"].lower())
-                else:
-                    ph = ",".join("?" * len(positive))
-                    where_clauses.append(
-                        f"s.id IN (SELECT spell_id FROM spell_classes WHERE LOWER(class_name) IN ({ph}))"
-                    )
-                    params.extend(c["value"].lower() for c in positive)
-            for c in negative:
-                where_clauses.append(
-                    "s.id NOT IN (SELECT spell_id FROM spell_classes WHERE LOWER(class_name) = ?)"
-                )
-                params.append(c["value"].lower())
-
-        elif field == "level":
-            # Positive clauses are OR-combined in a single subquery.
-            if positive:
-                parts, subparams = [], []
-                for c in positive:
-                    cond, cp = _level_condition(c["value"])
-                    if cond:
-                        parts.append(f"({cond})")
-                        subparams.extend(cp)
-                if parts:
-                    combined = " OR ".join(parts)
-                    where_clauses.append(
-                        f"s.id IN (SELECT spell_id FROM spell_classes WHERE {combined})"
-                    )
-                    params.extend(subparams)
-            for c in negative:
-                cond, cp = _level_condition(c["value"])
-                if cond:
-                    where_clauses.append(
-                        f"s.id NOT IN (SELECT spell_id FROM spell_classes WHERE {cond})"
-                    )
-                    params.extend(cp)
-
-        elif field == "category":
-            if positive:
-                if has_and:
-                    for c in positive:
-                        where_clauses.append(
-                            "s.id IN (SELECT spell_id FROM spell_categories WHERE category = ?)"
-                        )
-                        params.append(c["value"])
-                else:
-                    ph = ",".join("?" * len(positive))
-                    where_clauses.append(
-                        f"s.id IN (SELECT spell_id FROM spell_categories WHERE category IN ({ph}))"
-                    )
-                    params.extend(c["value"] for c in positive)
-            for c in negative:
-                where_clauses.append(
-                    "s.id NOT IN (SELECT spell_id FROM spell_categories WHERE category = ?)"
-                )
-                params.append(c["value"])
-
-        elif field == "descriptor":
-            pos_parts = []
-            for c in positive:
-                col = DESCRIPTOR_FLAG_MAP.get(c["value"].lower())
-                if col:
-                    pos_parts.append((f"s.{col} = 1", c["op"]))
-            if pos_parts:
-                expr = pos_parts[0][0]
-                for clause_expr, op in pos_parts[1:]:
-                    expr += f" {op} {clause_expr}"
-                where_clauses.append(f"({expr})")
-            for c in negative:
-                col = DESCRIPTOR_FLAG_MAP.get(c["value"].lower())
-                if col:
-                    where_clauses.append(f"(s.{col} = 0 OR s.{col} IS NULL)")
-
-        elif field in QUERY_EXACT_FIELDS:
-            if positive:
-                if has_and:
-                    for c in positive:
-                        where_clauses.append(f"LOWER(s.{field}) = ?")
-                        params.append(c["value"].lower())
-                else:
-                    ph = ",".join("?" * len(positive))
-                    where_clauses.append(f"LOWER(s.{field}) IN ({ph})")
-                    params.extend(c["value"].lower() for c in positive)
-            for c in negative:
-                where_clauses.append(f"LOWER(s.{field}) != ?")
-                params.append(c["value"].lower())
-
-        elif field in QUERY_LIKE_FIELDS:
-            if positive:
-                parts = []
-                for c in positive:
-                    parts.append((f"LOWER(s.{field}) LIKE ?", c["op"]))
-                    params.append(f"%{c['value'].lower()}%")
-                expr = parts[0][0]
-                for clause_expr, op in parts[1:]:
-                    expr += f" {op} {clause_expr}"
-                where_clauses.append(f"({expr})")
-            for c in negative:
-                where_clauses.append(f"LOWER(s.{field}) NOT LIKE ?")
-                params.append(f"%{c['value'].lower()}%")
-
-
-def get_db():
-    if "db" not in g:
-        g.db = sqlite3.connect(DB_PATH)
-        g.db.row_factory = sqlite3.Row
-        g.db.execute("PRAGMA foreign_keys = ON")
-    return g.db
-
-
-@app.teardown_appcontext
-def close_db(exc):
-    db = g.pop("db", None)
-    if db is not None:
-        db.close()
-
+# ── Routes ─────────────────────────────────────────────────────────────────────
 
 @app.route("/")
 def index():
@@ -411,7 +75,6 @@ def api_filters():
         ).fetchall()
     ]
 
-    # subschool is still exact-match with dynamic values
     result = {"classes": classes, "schools": schools, "sources": sources}
     result["categories"] = ["Damage", "Buff", "Debuff", "Control", "Protection", "Movement", "Utility"]
     result["subschool"] = [
@@ -423,17 +86,18 @@ def api_filters():
         ).fetchall()
     ]
     # Hardcoded grouped filter options
-    result["casting_time"]    = ["Standard Action", "Full-Round Action", "Swift Action",
-                                  "Immediate Action", "1 Round", "1 Minute", "10 Minutes", "1 Hour+"]
-    result["range"]           = ["Personal", "Touch", "Close", "Medium", "Long", "Unlimited", "See Text"]
-    result["duration"]        = ["Instantaneous", "1 Round/Level", "1 Minute/Level",
-                                  "10 Minutes/Level", "Hours", "Days", "Permanent",
-                                  "Concentration", "Until Discharged"]
-    result["descriptor"]      = _DESCRIPTOR_TAGS
-    result["saving_throw"]    = ["Will", "Fortitude", "Reflex", "None"]
-    result["spell_resistance"] = ["Yes", "No"]
-    result["area"]            = ["Line", "Cone", "Radius", "Burst", "Emanation", "Spread",
-                                  "Cube", "Cylinder", "Ray", "Wall", "Fog", "Sphere", "Hole"]
+    result["casting_time"]     = ["Standard Action", "Full-Round Action", "Swift Action",
+                                   "Immediate Action", "1 Round", "1 Minute", "10 Minutes", "1 Hour+"]
+    result["range"]            = ["Personal", "Touch", "Close", "Medium", "Long", "Unlimited", "See Text"]
+    result["duration"]         = ["Instantaneous", "1 Round/Level", "1 Minute/Level",
+                                   "10 Minutes/Level", "Hours", "Days", "Permanent",
+                                   "Concentration", "Until Discharged"]
+    result["descriptor"]       = _DESCRIPTOR_TAGS
+    result["saving_throw"]     = ["Will", "Fortitude", "Reflex", "None"]
+    result["spell_resistance"]  = ["Yes", "No"]
+    result["area"]             = ["Line", "Cone", "Radius", "Burst", "Emanation", "Spread",
+                                   "Cube", "Cylinder", "Ray", "Wall", "Fog", "Sphere", "Hole"]
+    result["has_explosive_filter"] = get_explosive_spell_ids() is not None
     return jsonify(result)
 
 
@@ -444,12 +108,12 @@ def api_spells():
     fts_text, field_clauses, negated_words = parse_advanced_query(q_raw)
     classes = [c.strip().lower() for c in request.args.getlist("class") if c.strip()]
     schools = [s.strip().lower() for s in request.args.getlist("school") if s.strip()]
-    levels = [int(l) for l in request.args.getlist("level") if l.strip().lstrip("-").isdigit()]
-    sort = request.args.get("sort", "").strip()
-    page = max(1, int(request.args.get("page", 1)))
+    levels  = [int(l) for l in request.args.getlist("level") if l.strip().lstrip("-").isdigit()]
+    sort    = request.args.get("sort", "").strip()
+    page    = max(1, int(request.args.get("page", 1)))
     _per_page_raw = request.args.get("per_page", "20").strip()
     if _per_page_raw.lower() == "all":
-        per_page = 10000  # effectively unlimited
+        per_page = 10000
         page = 1
     else:
         per_page = min(500, max(1, int(_per_page_raw)))
@@ -460,7 +124,7 @@ def api_spells():
     joins = []
     use_fts = False
 
-    # Full-text search (plain text remaining after field:value extraction)
+    # Full-text search
     if fts_text.strip():
         fts_query = build_fts_query(fts_text)
         use_fts = True
@@ -468,7 +132,7 @@ def api_spells():
         where_clauses.append("spells_fts MATCH ?")
         params.append(fts_query)
 
-    # !word exclusions — spells must NOT contain these words/phrases in FTS
+    # !word exclusions
     for word in negated_words:
         fts_val = f'"{word}"' if ' ' in word else f'{word}*'
         where_clauses.append(
@@ -476,10 +140,10 @@ def api_spells():
         )
         params.append(fts_val)
 
-    # Field:value clauses parsed from the query string
+    # field:value clauses
     apply_field_clauses(field_clauses, where_clauses, params)
 
-    # Class / level filters (both join spell_classes)
+    # Class / level filters
     if classes or levels:
         joins.append("JOIN spell_classes sc_filter ON sc_filter.spell_id = s.id")
         if classes:
@@ -497,7 +161,7 @@ def api_spells():
         where_clauses.append(f"LOWER(s.school) IN ({_ph})")
         params.extend(schools)
 
-    # Category filter (join on spell_categories table)
+    # Category filter
     categories = [c.strip() for c in request.args.getlist("category") if c.strip()]
     if categories:
         joins.append("JOIN spell_categories sc_cat ON sc_cat.spell_id = s.id")
@@ -505,14 +169,14 @@ def api_spells():
         where_clauses.append(f"sc_cat.category IN ({_ph})")
         params.extend(categories)
 
-    # Exact-match filter: subschool only
+    # Subschool filter
     _subschool_values = request.args.getlist("subschool")
     if _subschool_values:
         _ph = ",".join("?" * len(_subschool_values))
         where_clauses.append(f"LOWER(s.subschool) IN ({_ph})")
         params.extend([v.lower() for v in _subschool_values])
 
-    # Grouped LIKE filters — each option maps to a (db_field, keyword) pair
+    # Grouped LIKE filters
     for _param, _option_map in GROUPED_FILTER_MAPS.items():
         _values = request.args.getlist(_param)
         if not _values:
@@ -527,7 +191,7 @@ def api_spells():
         if _like_clauses:
             where_clauses.append("(" + " OR ".join(_like_clauses) + ")")
 
-    # Descriptor boolean filter — each selected descriptor maps to a flag column
+    # Descriptor boolean filter
     _descriptor_values = request.args.getlist("descriptor")
     if _descriptor_values:
         _desc_clauses = []
@@ -538,7 +202,7 @@ def api_spells():
         if _desc_clauses:
             where_clauses.append("(" + " OR ".join(_desc_clauses) + ")")
 
-    # Component exclusion filter (AND semantics — each selected component must be absent)
+    # Component exclusion filter
     _component_col_map = {
         "verbal":       "verbal",
         "somatic":      "somatic",
@@ -551,21 +215,29 @@ def api_spells():
         if _col:
             where_clauses.append(f"(s.{_col} = 0 OR s.{_col} IS NULL)")
 
-    # Favorites / spellbook id filter — match a specific set of spell IDs
+    # Favorites / ID filter
     _fav_ids = [int(i) for i in request.args.getlist("id") if i.strip().lstrip("-").isdigit()]
     if _fav_ids:
         _ph = ",".join("?" * len(_fav_ids))
         where_clauses.append(f"s.id IN ({_ph})")
         params.extend(_fav_ids)
 
-    where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
-    join_sql = " ".join(joins)
+    # Explosive Weapon feat filter
+    _explosive_ids = get_explosive_spell_ids()
+    if request.args.get("explosive") == "1" and _explosive_ids is not None:
+        if _explosive_ids:
+            _ph = ",".join("?" * len(_explosive_ids))
+            where_clauses.append(f"s.id IN ({_ph})")
+            params.extend(_explosive_ids)
+        else:
+            where_clauses.append("1=0")
 
-    # Use DISTINCT to avoid duplicates from joins
+    where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+    join_sql  = " ".join(joins)
+
     count_sql = f"SELECT COUNT(DISTINCT s.id) FROM spells s {join_sql}{where_sql}"
     total = db.execute(count_sql, params).fetchone()[0]
 
-    # Order: explicit sort overrides FTS rank
     _sort_map = {
         "name":       "s.name",
         "name_desc":  "s.name DESC",
@@ -594,7 +266,6 @@ def api_spells():
     spells = []
     for row in rows:
         spell = dict(row)
-        # Attach class/level list
         cls_rows = db.execute(
             "SELECT class_name, level FROM spell_classes WHERE spell_id = ? ORDER BY class_name",
             (spell["id"],),
@@ -608,7 +279,7 @@ def api_spells():
         ).fetchall()
         categories = [r["category"] for r in cat_rows]
         if not categories:
-            school = (spell["school"] or "").lower()
+            school    = (spell["school"] or "").lower()
             subschool = (spell["subschool"] or "").lower()
             if school == "divination":
                 categories = ["Divination"]
@@ -619,15 +290,13 @@ def api_spells():
         spell["categories"] = categories
         spells.append(spell)
 
-    return jsonify(
-        {
-            "spells": spells,
-            "total": total,
-            "page": page,
-            "per_page": per_page,
-            "pages": (total + per_page - 1) // per_page,
-        }
-    )
+    return jsonify({
+        "spells": spells,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "pages": (total + per_page - 1) // per_page,
+    })
 
 
 # ── Spell name lookup (for list import) ───────────────────────────────────────
@@ -648,20 +317,18 @@ def api_spells_lookup_by_name():
     ).fetchall()
 
     matched_by_lower = {row["name"].lower(): {"id": row["id"], "name": row["name"]} for row in rows}
-    matched = list(matched_by_lower.values())
+    matched   = list(matched_by_lower.values())
     unmatched = [n for n in names if n.lower() not in matched_by_lower]
 
     return jsonify({"matched": matched, "unmatched": unmatched})
 
 
-# ── Spellbook key encode / decode ─────────────────────────────────────────────
-# Spellbooks are stored client-side in localStorage; these endpoints only
-# handle the compact key format used for export/import sharing.
+# ── Spellbook key encode / decode ──────────────────────────────────────────────
 
 @app.route("/api/spellbooks/encode", methods=["POST"])
 def api_spellbooks_encode():
     data = request.get_json(force=True)
-    name = (data.get("name") or "Spellbook").strip()
+    name   = (data.get("name") or "Spellbook").strip()
     spells = data.get("spells", [])
     return jsonify({"key": encode_spellbook({"name": name, "spells": spells})})
 
@@ -674,33 +341,130 @@ def api_spellbooks_decode():
     try:
         data = decode_spellbook_key(key)
         return jsonify({
-            "name": data.get("name", "Imported Spellbook"),
+            "name":   data.get("name", "Imported Spellbook"),
             "spells": data.get("spells", []),
         })
     except Exception:
         return jsonify({"error": "Invalid key"}), 400
 
 
-def build_fts_query(user_query: str) -> str:
-    """Convert user input into an FTS5 query string.
+# ── Feats routes ───────────────────────────────────────────────────────────────
 
-    - If the user uses quotes, pass through for phrase matching.
-    - Otherwise, add * suffix to each token for prefix matching
-      and join with implicit AND.
+@app.route("/api/feats/filters")
+def api_feats_filters():
+    db = get_db()
+    raw_types = db.execute(
+        "SELECT DISTINCT type FROM feats WHERE type IS NOT NULL AND type != ''"
+    ).fetchall()
+    type_set = set()
+    for row in raw_types:
+        for t in row[0].split(","):
+            t = t.strip()
+            if t:
+                type_set.add(t)
+    types = sorted(type_set)
+
+    sources = [
+        r[0] for r in db.execute(
+            "SELECT DISTINCT source FROM feats WHERE source IS NOT NULL AND source != '' ORDER BY source"
+        ).fetchall()
+    ]
+    return jsonify({"types": types, "sources": sources})
+
+
+@app.route("/api/feats")
+def api_feats():
+    db = get_db()
+    q_raw = request.args.get("q", "").strip()
+    fts_text, field_clauses, negated_words = parse_advanced_query(q_raw, field_map=FEAT_QUERY_FIELD_MAP)
+    type_filter   = [v.strip() for v in request.args.getlist("type")   if v.strip()]
+    source_filter = [v.strip() for v in request.args.getlist("source") if v.strip()]
+    sort = request.args.get("sort", "").strip()
+    page = max(1, int(request.args.get("page", 1)))
+    _pp_raw = request.args.get("per_page", "20").strip()
+    if _pp_raw.lower() == "all":
+        per_page = 10000
+        page = 1
+    else:
+        per_page = min(500, max(1, int(_pp_raw)))
+    offset = (page - 1) * per_page
+
+    params = []
+    where_clauses = []
+    joins = []
+    use_fts = False
+
+    if fts_text.strip():
+        fts_query = build_fts_query(fts_text)
+        use_fts = True
+        joins.append("JOIN feats_fts ON feats_fts.rowid = f.id")
+        where_clauses.append("feats_fts MATCH ?")
+        params.append(fts_query)
+
+    for word in negated_words:
+        fts_val = f'"{word}"' if ' ' in word else f'{word}*'
+        where_clauses.append(
+            "f.id NOT IN (SELECT rowid FROM feats_fts WHERE feats_fts MATCH ?)"
+        )
+        params.append(fts_val)
+
+    apply_feat_field_clauses(field_clauses, where_clauses, params)
+
+    if type_filter:
+        type_parts = [f"LOWER(f.type) LIKE ?" for _ in type_filter]
+        where_clauses.append("(" + " OR ".join(type_parts) + ")")
+        params.extend(f"%{v.lower()}%" for v in type_filter)
+
+    if source_filter:
+        ph = ",".join("?" * len(source_filter))
+        where_clauses.append(f"f.source IN ({ph})")
+        params.extend(source_filter)
+
+    where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+    join_sql  = " ".join(joins)
+
+    count_sql = f"SELECT COUNT(DISTINCT f.id) FROM feats f {join_sql}{where_sql}"
+    total = db.execute(count_sql, params).fetchone()[0]
+
+    _sort_map = {
+        "name":      "f.name",
+        "name_desc": "f.name DESC",
+        "type":      "f.type, f.name",
+        "type_desc": "f.type DESC, f.name",
+    }
+    if sort in _sort_map:
+        order = f"ORDER BY {_sort_map[sort]}"
+    elif use_fts:
+        order = "ORDER BY feats_fts.rank"
+    else:
+        order = "ORDER BY f.name"
+
+    query_sql = f"""
+        SELECT DISTINCT f.* FROM feats f
+        {join_sql}
+        {where_sql}
+        {order}
+        LIMIT ? OFFSET ?
     """
-    # If user is already using FTS operators, pass through as-is
-    if any(op in user_query.upper() for op in [" AND ", " OR ", " NOT ", '"']):
-        return user_query
+    params.extend([per_page, offset])
+    rows = db.execute(query_sql, params).fetchall()
 
-    tokens = user_query.split()
-    # Prefix-match each token
-    parts = [f"{t}*" for t in tokens if t]
-    return " ".join(parts)
+    feats = [dict(row) for row in rows]
+    return jsonify({
+        "feats": feats,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "pages": (total + per_page - 1) // per_page,
+    })
 
 
 if __name__ == "__main__":
+    import os
     if not os.path.exists(DB_PATH):
         print(f"Database not found at {DB_PATH}")
         print("Run 'python tools/init_db.py' first to create the database.")
         raise SystemExit(1)
+    ensure_feats_tables()
+    load_explosive_spell_ids()
     app.run(debug=True, port=5000)

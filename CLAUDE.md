@@ -20,7 +20,9 @@ Spellfinder/
 ├── start.sh            # One-click launcher for Mac/Linux
 ├── static/
 │   ├── style.css       # Dark parchment theme
-│   └── app.js          # Frontend: search, filters, spellbooks, rendering, pagination
+│   ├── app.js          # Frontend: search, filters, spellbooks, rendering, pagination
+│   ├── feats.js        # Feats tab frontend
+│   └── macros.js       # Roll20 Macro Builder frontend
 ├── templates/
 │   └── index.html      # Main page template
 └── categorization/
@@ -116,6 +118,95 @@ Examples: `class:wizard AND class:paladin`, `domain:fire`, `spirit:flame`, `myst
 4. **Component exclusion** (AND semantics) — each selected component must be absent (`= 0 OR IS NULL`)
 
 Multiple values within a single filter are OR. Filters across different fields are AND.
+
+## Roll20 Macro Builder
+
+Client-side only (no backend). All data stored in `localStorage`. Lives in `static/macros.js`.
+
+### Profile data model
+
+```json
+{
+  "id": "uuid",
+  "name": "My Character",
+  "baseToHit": 12,
+  "baseDamageDice": "2d6",
+  "critRange": 19,
+  "critMultiplier": 2,
+  "modifiers": {
+    "abilityType": "STR",
+    "abilityScore": 18,
+    "splitAbilityScore": false,
+    "abilityTypeHit": "DEX",
+    "abilityScoreHit": 16,
+    "abilityTypeDmg": "STR",
+    "abilityScoreDmg": 18,
+    "enhancementBonus": 2,
+    "powerAttack": true,
+    "deadlyAim": false,
+    "perAttackScaling": false,
+    "globalStrMultiplier": "1.5",
+    "globalStrMultiplierCustom": 1,
+    "globalPaMultiplier": "1.5",
+    "globalPaMultiplierCustom": 1
+  },
+  "attacks": [
+    { "id": "uuid", "iterative": 0,  "strMultiplier": "1.5", "strMultiplierCustom": 1, "paMultiplier": "1.5", "paMultiplierCustom": 1 },
+    { "id": "uuid", "iterative": -5, "strMultiplier": "1",   "strMultiplierCustom": 1, "paMultiplier": "1",   "paMultiplierCustom": 1 }
+  ],
+  "bonusGroups": [
+    {
+      "id": "uuid",
+      "name": "Buffs",
+      "bonuses": [
+        { "id": "uuid", "name": "Haste", "value": "1", "appliesToHit": true, "appliesToDamage": false, "appliesToCritHit": true, "appliesToCrit": false, "enabled": true }
+      ]
+    }
+  ]
+}
+```
+
+Profiles stored as array under `roll20_profiles`; active ID under `roll20_active_profile`. Migration runs on every load via `migrateProfile()`.
+
+### Modifier math
+
+- **Ability modifier**: `floor((score − 10) / 2)`
+- **`baseToHit`** doubles as BAB for PA/DA penalty: `penalty = −(floor(BAB / 4) + 1)`
+- **Ability score → hit**: `hitAbilityMod(mods)` — uses `abilityScoreHit` when split, else `abilityScore`
+- **Ability score → damage**: `dmgAbilityMod(mods)` × `strMultiplier` per attack (or global)
+- **PA/DA damage**: `|penalty| × 2 × paMultiplier` per attack (or global); 0.5× = off-hand, 1× = 1H, 1.5× = 2H
+- **Enhancement bonus**: flat +X to both hit and damage
+- **Crit confirm**: same as normal to-hit, respects `appliesToCritHit` on bonus rows
+- **Crit extra damage**: same as normal damage, respects `appliesToCrit` on bonus rows (uncheck for precision damage)
+
+### Scaling modes
+
+- **Global** (default): one STR × and PA × selector in the Modifiers section applies to all attacks
+- **Per-attack**: "Per-attack scaling" checkbox enables per-attack STR × and PA × dropdowns inline on each attack row
+- Both modes support 0.5× / 1× / 1.5× / Custom
+
+### Ability score split
+
+- Default: one stat (e.g. STR) adds to both hit and damage
+- "Split Hit/Dmg" checkbox reveals separate hit-stat and damage-stat rows (e.g. DEX to hit, STR to damage for finesse builds)
+
+### Bonus groups
+
+- User-created named panels under "Bonuses & Extra Dice" — each group has its own bonus rows
+- Groups are collapsible (▼/▶ toggle) — session-only, not persisted
+- Each bonus row: enabled checkbox, name, value (integer or `NdN`), applies-to checkboxes (Hit / Dmg / Crit Hit / Crit Dmg), delete
+- `+ New Group` adds a group; groups can be renamed and deleted
+
+### Session-only toggles
+
+- **Sunblade** — doubles damage roll count (like a crit) for all attacks; +1 to effective crit multiplier for crit macros
+
+### localStorage keys
+
+| Key | Contents |
+|---|---|
+| `roll20_profiles` | JSON array of all profiles |
+| `roll20_active_profile` | ID string of the active profile |
 
 ## Frontend features
 
